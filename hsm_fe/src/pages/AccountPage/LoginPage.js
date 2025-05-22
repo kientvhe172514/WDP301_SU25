@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useDispatch } from "react-redux";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Card, Form, Input, Button } from "antd";
 import { updateAccount } from "../../redux/accountSlice";
 import * as AccountService from "../../services/accountService";
@@ -150,12 +150,12 @@ const LoginPage = () => {
                     )}
 
                     <div className="forgot-password">
-                        <a href="#">Forgot password?</a>
+                        <Link to="/forgot-password">Forgot password?</Link>
                     </div>
 
                     <Form.Item>
                         <Button
-                            style={{ backgroundColor: "rgb(121, 215, 190)", marginTop: "10px" }}
+                            style={{ backgroundColor: "rgb(1, 251, 184)", marginTop: "10px" }}
                             type="primary"
                             htmlType="submit"
                             loading={mutation.isLoading}

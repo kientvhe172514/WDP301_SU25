@@ -127,3 +127,29 @@ export const logout = async (access_token) => {
         return { status: "ERR", message: error.response?.data?.message };
     }
 };
+
+
+// Function to request password reset
+export const requestPasswordReset = async (email) => {
+    try {
+        const res = await axios.post(
+            `${process.env.REACT_APP_API_URL_BACKEND}/account/forgot-password`,
+            { email }
+        );
+        return res.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+// Function to reset password
+export const resetPassword = async (token, newPassword) => {
+    try {
+        const res = await axios.post(
+            `${process.env.REACT_APP_API_URL_BACKEND}/account/reset-password/${token}`, { newPassword }
+        );
+        return res.data;
+    } catch (error) {
+        throw error;
+    }
+};
