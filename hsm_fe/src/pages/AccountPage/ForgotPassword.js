@@ -1,6 +1,6 @@
 // pages/AccountPage/ForgotPassword.js
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { icons } from '../../constants';
 import "./Login.css";
 import * as AccountService from "../../services/accountService";
@@ -27,13 +27,13 @@ const ForgotPassword = () => {
     };
 
     return (
-        <div className="login-container">
-            <div className="login-card">
-                <h2 className="form-title">Forgot Password</h2>
+        <div className="forgot-container">
+            <div className="forgot-card">
+                <h2 className="forgot-form-title">Forgot Password</h2>
                 <p className="forgot-description">Nhập địa chỉ email và chúng tôi sẽ gửi liên kết để đặt lại mật khẩu.</p>
-                <div className="login-form">
-                    <div className="input-wrapper">
-                        <img src={icons.mail} alt="email" className="input-icon" />
+                <div className="forgot-form">
+                    <div className="forgot-input-wrapper">
+                        <img src={icons.mail} alt="email" className="forgot-input-icon" />
                         <input
                             type="email"
                             placeholder="Email"
@@ -42,13 +42,13 @@ const ForgotPassword = () => {
                             className="input-field"
                         />
                     </div>
-                    {error && <p className="error-message" style={{ color: 'red' }}>{error}</p>}
-                    {message && <p className="success-message" style={{ color: 'green' }}>{message}</p>}
-                    <button onClick={handleResetPassword} className="login-button">
+                    {error && <p className="forgot-error-message" style={{ color: 'red' }}>{error}</p>}
+                    {message && <p className="forgot-success-message" style={{ color: 'green' }}>{message}</p>}
+                    <button onClick={handleResetPassword} className="forgot-button">
                         Gửi liên kết đặt lại mật khẩu
                     </button>
                     <p className="signup-prompt">
-                        <a href="/login" className="signup-link">Quay lại đăng nhập</a>
+                        <Link to="/login" className="signup-link">Quay lại đăng nhập</Link>
                     </p>
                 </div>
             </div>
