@@ -1,0 +1,252 @@
+/* Login Page Styles */
+
+.container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background-color: white;
+}
+
+.login-box {
+    display: flex;
+    width: 80%;
+    height: 80%;
+    background: "#F6F4F0";
+    overflow: hidden;
+    align-items: center;
+
+    justify-content: center;
+}
+
+.image-section {
+    width: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: white;
+}
+
+.image-placeholder {
+    width: 100%;
+    height: 80%;
+    background: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+}
+
+.image-icon {
+    width: 100%;
+    height: 100%;
+    color: #777;
+}
+
+.form-section {
+    width: 50%;
+
+.login-page__container {
+    overflow-y: hidden;
+    min-height: 100vh !important;
+    background-repeat: repeat;
+    background-size: cover;
+    position: relative;
+    background-color: transparent;
+  
+      display: flex;
+      align-content: center;
+      
+      justify-content: center;
+  }
+  
+  .login-frame{
+   margin-top: 10%;
+    width: 600px;
+    height: auto;
+    max-width: 600px;
+    max-height: 530px;
+    padding: 30px 44px 30px 34px;
+    box-shadow: 0 15px 40px rgba(0, 87, 155, .1);
+    border-radius: 30px;
+    background-color: #fff;
+  }
+  
+  .form-section {
+    padding: 40px;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+
+}
+  
+  .title {
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: #2E5077;
+}
+
+.subtitle {
+    color: #2E5077;
+    margin-bottom: 20px;
+}
+
+.input-group {
+    margin-bottom: 15px;
+}
+  
+  .subtitle {
+    color: #2E5077;
+    margin-bottom: 20px;
+  }
+  
+  .input-group {
+    margin-bottom: 15px;
+    
+  }
+  
+  .input-group label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: #2E5077
+}
+
+.input-group input {
+    width: 95%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+
+}
+
+.forgot-password {
+    text-align: right;
+    margin-top: 5px;
+}
+
+.forgot-password a {
+    color: #223B79;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.forgot-password a:hover {
+    text-decoration: underline;
+}
+  
+  .ant-input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+  
+  }
+
+  .ant-input-affix-wrapper{
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+  }
+  
+  .forgot-password {
+    text-align: left;
+    margin-top: 5px;
+    margin-bottom: 10px;
+  }
+  
+  .forgot-password a {
+    color: #223B79;
+    text-decoration: none;
+    font-weight: bold;
+  }
+  
+  .forgot-password a:hover {
+    text-decoration: underline;
+  }
+  
+  .ant-btn {
+    width: 100%;
+    padding: 10px;
+    background-color: #4DA1A9;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.login-button:hover {
+    background-color: #0056b3;
+}
+
+.separator {
+    display: flex;
+    align-items: center;
+    margin: 20px 0;
+}
+
+.separator hr {
+    flex-grow: 1;
+    border: none;
+    border-top: 1px solid #ccc;
+}
+
+.separator span {
+    margin: 0 10px;
+    color: #666;
+}
+    height: 50px;
+  }
+  
+
+  
+  .ant-btn:hover {
+    background-color: #0056b3;
+  }
+  
+  .separator {
+    display: flex;
+    align-items: center;
+    margin: 20px 0;
+  }
+  
+  .separator hr {
+    flex-grow: 1;
+    border: none;
+    border-top: 1px solid #ccc;
+  }
+  
+  .separator span {
+    margin: 0 10px;
+    color: #666;
+  }
+  
+  .captcha {
+    display: flex;
+    border-radius: 5px;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    background-color: #eeeee9;
+    padding: 5px;
+  }
+  
+  .captcha_checkbox {
+   display: flex;
+   align-items: center;
+  }
+  
+  .captcha_checkbox_span {
+    margin-left: 20px;
+    font-size: 16px;
+    
+  }
+  
+  input.captcha_checkbox_input{
+    margin-left: 10px;
+    width: 30px;
+    height: 30px;
+  }
+  
