@@ -17,7 +17,7 @@ const CustomerSchema = new mongoose.Schema({
     full_name: { type: String, required: true },
     phone: { type: String, unique: true },
     cccd: { type: String, unique: true },
-    accoutId: {
+    accountId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Account"
     },

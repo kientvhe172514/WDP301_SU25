@@ -92,26 +92,43 @@ exports.resetPassword = async (req, res) => {
   }
 };
 
+// exports.getProfile = async (req, res) => {
+//   try {
+//     if (!req.account) {
+//       return res.status(401).json({
+//         status: "Error",
+//         message: "Unauthorized",
+//       });
+//     }
+//     const accountId = req.account._id;
+//     console.log("Get profile request for accountId:", accountId);
+//     const profileData = await AccountService.getProfile(accountId);
+//     res.status(200).json({
+//       status: "Success",
+//       message: "Get profile successfully",
+//       data: profileData,
+//     });
+//   } catch (err) {
+//     console.error("Get profile error:", err);
+//     res.status(500).json({ status: "Error", message: err.message });
+//   }
+// };
+
 exports.getProfile = async (req, res) => {
-  try {
-    if (!req.account) {
-      return res.status(401).json({
-        status: "Error",
-        message: "Unauthorized",
-      });
+    try {
+        const userId = req.account._id;
+        const profile = await AccountService.getProfile(userId);
+        return res.status(200).json({
+            message: "Profile fetched successfully",
+            data: profile,
+            status: "Success",
+        });
+    } catch (error) {
+        return res.status(400).json({
+            message: error.message,
+            status: "Error",
+        });
     }
-    const accountId = req.account._id;
-    console.log("Get profile request for accountId:", accountId);
-    const profileData = await AccountService.getProfile(accountId);
-    res.status(200).json({
-      status: "Success",
-      message: "Get profile successfully",
-      data: profileData,
-    });
-  } catch (err) {
-    console.error("Get profile error:", err);
-    res.status(500).json({ status: "Error", message: err.message });
-  }
 };
 
 exports.updateProfile = async (req, res) => {

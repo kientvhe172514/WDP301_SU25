@@ -2,6 +2,7 @@ const Account = require("../models/AccountModel");
 const Employee = require("../models/EmployeeModel");
 const Customer = require("../models/CustomerModel");
 const Hotel = require("../models/HotelModel");
+const RoleAssignment = require("../models/RoleAssignments");
 const { generateAccessToken, generateRefreshToken } = require("./JwtService");
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
@@ -136,10 +137,13 @@ const getProfile = async (accountId) => {
   if (!account) throw new Error("Account not found");
 
   const employee = await Employee.findOne({ accountId })
-    .populate("hotels", "name")
+    .populate("hotels", "CodeHotel NameHotel")
     .populate("permission", "PermissionName Note");
 
   const customer = await Customer.findOne({ accoutId: accountId });
+
+  const roleAssignment = await RoleAssignment.findOne({ account: accountId })
+    .populate("role");
 
   const profileData = {
     account: {
@@ -148,6 +152,7 @@ const getProfile = async (accountId) => {
       email: account.Email,
       username: account.Username,
       permissions: account.permissions,
+      role: roleAssignment ? roleAssignment.role.RoleName : "",
       isDelete: account.IsDelete,
       createdAt: account.createdAt,
       updatedAt: account.updatedAt,
@@ -164,6 +169,7 @@ const getProfile = async (accountId) => {
       image: employee.Image,
       address: employee.Address,
       hotels: employee.hotels,
+      role: employee.role ? employee.role.RoleName : "",
       permission: employee.permission,
       createdAt: employee.createdAt,
       updatedAt: employee.updatedAt,
@@ -176,6 +182,8 @@ const getProfile = async (accountId) => {
       fullName: customer.full_name,
       phone: customer.phone,
       cccd: customer.cccd,
+      avatar: customer.avatar,
+      role: customer.role ? customer.role.RoleName : "",
       createdAt: customer.createdAt,
       updatedAt: customer.updatedAt,
     };
@@ -183,6 +191,55 @@ const getProfile = async (accountId) => {
 
   return profileData;
 };
+
+// const getProfile = async (userId) => {
+//     try {
+//         // Fetch account details
+//         const account = await Account.findById(userId)
+//             .select("-Password -refreshToken -resetPasswordToken -resetPasswordExpires")
+//             .lean();
+
+//         if (!account) {
+//             throw new Error("Account not found");
+//         }
+
+//         // Fetch role assignment to determine user role
+//         const roleAssignment = await RoleAssignment.findOne({ account: userId })
+//             .populate("role")
+//             .lean();
+
+//         let role = "Customer"; // Default role
+//         if (roleAssignment && roleAssignment.role) {
+//             role = roleAssignment.role.RoleName;
+//         }
+
+//         // Fetch customer or employee details based on role
+//         let customer = null;
+//         let employee = null;
+
+//         if (role === "Customer") {
+//             customer = await Customer.findOne({ accountId: userId }).lean();
+//         } else {
+//             employee = await Employee.findOne({ accountId: userId })
+//                 .populate("hotels permission")
+//                 .lean();
+//         }
+
+//         return {
+//             account: {
+//                 fullName: account.FullName,
+//                 username: account.Username,
+//                 email: account.Email,
+//                 createdAt: account.createdAt,
+//             },
+//             customer,
+//             employee,
+//             role,
+//         };
+//     } catch (error) {
+//         throw new Error(error.message || "Unable to fetch profile");
+//     }
+// };
 
 const updateProfile = async (accountId, data) => {
   const { fullName, username, phone, gender, address, image, cccd, email } = data;
