@@ -263,6 +263,14 @@ export const routes = [
     //     permissions: ["Admin", "Receptionist"],
     // },
     {
+        path: "/profile",
+        name: "Profile",
+        page: ProfilePage,
+        isShowHeader: true,
+        icon: <ProfileOutlined />,
+        permissions: ["Admin", "Receptionist", "Hotel-Admin", "Janitor", "Customer"],
+    },
+    {
         path: "/amenities",
         name: "Amenities",
         page: AmenityListPage,

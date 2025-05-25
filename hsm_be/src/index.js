@@ -16,7 +16,7 @@ app.use(bodyParser.json());
 app.use(morgan("dev"));
 
 
-app.use('/api/account', require('./routes/authRoutes'));
+app.use('/api/account', require('./routes/AccountRouter'));
 
 
 

@@ -153,3 +153,59 @@ export const resetPassword = async (token, newPassword) => {
         throw error;
     }
 };
+
+// Get Profile 
+export const getProfile = async (access_token) => {
+    try {
+        const res = await axiosJWT.get(
+            `${process.env.REACT_APP_API_URL_BACKEND}/account`,
+            {
+                headers: {
+                    token: `Bearer ${access_token}`,
+                },
+            }
+        );
+        return res.data;
+    } catch (error) {
+        console.error("Error fetching profile:", error);
+        throw error;
+    }
+};
+
+// Update Profile
+export const updateProfile = async (data, access_token) => {
+    try {
+        const res = await axiosJWT.put(
+            `${process.env.REACT_APP_API_URL_BACKEND}/account`,
+            data,
+            {
+                headers: {
+                    token: `Bearer ${access_token}`,
+                },
+            }
+        );
+        return res.data;
+    } catch (error) {
+        console.error("Error updating profile:", error);
+        throw error;
+    }
+};
+
+// Change Password
+export const changePassword = async (data, access_token) => {
+    try {
+        const res = await axiosJWT.put(
+            `${process.env.REACT_APP_API_URL_BACKEND}/account/change-password`,
+            data,
+            {
+                headers: {
+                    token: `Bearer ${access_token}`,
+                },
+            }
+        );
+        return res.data;
+    } catch (error) {
+        console.error("Error changing password:", error);
+        throw error;
+    }
+};

@@ -1,6 +1,8 @@
 // icons.jsx 
 import gmail from '../asset/img/gmail.png';
+import lock from '../asset/img/lock.png';
 
 export default {
-    mail: gmail
+    mail: gmail,
+    lock: lock,
 };
