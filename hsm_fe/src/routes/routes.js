@@ -9,7 +9,23 @@ import ProfilePage from "../pages/ProfilePage/ProfilePage";
 import RevenuePage from "../pages/RevenuePage/RevenuePage";
 import AddRoom from "../pages/RoomPage/AddRoom";
 import RoomDashboard from "../pages/RoomPage/RoomDashboard";
-import { SettingOutlined, AppstoreAddOutlined, HomeOutlined, BarChartOutlined, LineChartOutlined, PlusCircleOutlined, TableOutlined, BorderOuterOutlined, ProfileOutlined, BankOutlined, CalendarOutlined, DesktopOutlined, WifiOutlined, DollarCircleOutlined, OrderedListOutlined } from '@ant-design/icons';
+import {
+    SettingOutlined,
+    AppstoreAddOutlined,
+    HomeOutlined,
+    BarChartOutlined,
+    LineChartOutlined,
+    PlusCircleOutlined,
+    TableOutlined,
+    BorderOuterOutlined,
+    ProfileOutlined,
+    BankOutlined,
+    CalendarOutlined,
+    DesktopOutlined,
+    WifiOutlined,
+    DollarCircleOutlined,
+    OrderedListOutlined
+} from '@ant-design/icons';
 import RoomList from "../pages/RoomPage/RoomList";
 import EmployeesPage from "../pages/EmployeesPage/EmployeesPage";
 import EmployeeDetail from "../pages/EmployeesPage/EmployeeDetail/EmployeeDetail";
@@ -24,6 +40,8 @@ import BookingLogs from "../pages/BookingPage/BookingLogs";
 import AmenityListPage from '../pages/AmenityPage/AmenityListPage/AmenityPageList';
 import ServicePage from "../pages/ServicePage/ServicePage";
 import BookingHistory from "../pages/BookingPage/BookingHistory";
+import ForgotPassword from "../pages/AccountPage/ForgotPassword";
+import ResetPassword from "../pages/AccountPage/ResetPassword";
 
 
 export const routes = [
@@ -52,6 +70,18 @@ export const routes = [
         name: "login",
         page: LoginPage,
         icon: <SettingOutlined />,
+        isShowHeader: false,
+    },
+    {
+        path: "/forgot-password",
+        name: "Forgot Password",
+        page: ForgotPassword,
+        isShowHeader: false,
+    },
+    {
+        path: "/reset-password/:token",
+        name: "Reset Password",
+        page: ResetPassword,
         isShowHeader: false,
     },
     {
@@ -232,6 +262,14 @@ export const routes = [
     //     icon: <HomeOutlined />,
     //     permissions: ["Admin", "Receptionist"],
     // },
+    {
+        path: "/profile",
+        name: "Profile",
+        page: ProfilePage,
+        isShowHeader: true,
+        icon: <ProfileOutlined />,
+        permissions: ["Admin", "Receptionist", "Hotel-Admin", "Janitor", "Customer"],
+    },
     {
         path: "/amenities",
         name: "Amenities",

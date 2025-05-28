@@ -14,7 +14,7 @@ import { persistStore } from 'redux-persist';
 import { store } from './redux/store';
 import axios from 'axios';
 const { Sider, Content, Header } = Layout;
-const publicRoutes = ["/login", "/verification"];
+const publicRoutes = ["/login", "/verification", "/forgot-password", "/reset-password"];
 
 const App = () => {
     const dispatch = useDispatch();

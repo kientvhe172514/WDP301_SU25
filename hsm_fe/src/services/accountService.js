@@ -127,3 +127,85 @@ export const logout = async (access_token) => {
         return { status: "ERR", message: error.response?.data?.message };
     }
 };
+
+
+// Function to request password reset
+export const requestPasswordReset = async (email) => {
+    try {
+        const res = await axios.post(
+            `${process.env.REACT_APP_API_URL_BACKEND}/account/forgot-password`,
+            { email }
+        );
+        return res.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+// Function to reset password
+export const resetPassword = async (token, newPassword) => {
+    try {
+        const res = await axios.post(
+            `${process.env.REACT_APP_API_URL_BACKEND}/account/reset-password/${token}`, { newPassword }
+        );
+        return res.data;
+    } catch (error) {
+        throw error;
+    }
+};
+
+// Get Profile 
+export const getProfile = async (access_token) => {
+    try {
+        const res = await axiosJWT.get(
+            `${process.env.REACT_APP_API_URL_BACKEND}/account`,
+            {
+                headers: {
+                    token: `Bearer ${access_token}`,
+                },
+            }
+        );
+        return res.data;
+    } catch (error) {
+        console.error("Error fetching profile:", error);
+        throw error;
+    }
+};
+
+// Update Profile
+export const updateProfile = async (data, access_token) => {
+    try {
+        const res = await axiosJWT.put(
+            `${process.env.REACT_APP_API_URL_BACKEND}/account`,
+            data,
+            {
+                headers: {
+                    token: `Bearer ${access_token}`,
+                },
+            }
+        );
+        return res.data;
+    } catch (error) {
+        console.error("Error updating profile:", error);
+        throw error;
+    }
+};
+
+// Change Password
+export const changePassword = async (data, access_token) => {
+    try {
+        const res = await axiosJWT.put(
+            `${process.env.REACT_APP_API_URL_BACKEND}/account/change-password`,
+            data,
+            {
+                headers: {
+                    token: `Bearer ${access_token}`,
+                },
+            }
+        );
+        return res.data;
+    } catch (error) {
+        console.error("Error changing password:", error);
+        throw error;
+    }
+};
