@@ -1,6 +1,6 @@
 const express = require("express");
 const AccountController = require("../controllers/AccountController");
-const { checkAuthMiddleware } = require("../middleware/authMiddleware");
+const { authUserMiddleware } = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
@@ -161,7 +161,7 @@ router.post("/reset-password/:token", AccountController.resetPassword);
  *       500:
  *         description: Internal server error
  */
-router.get("/profile", checkAuthMiddleware, AccountController.getProfile);
+router.get("/profile", authUserMiddleware, AccountController.getProfile);
 
 /**
  * @swagger
@@ -204,7 +204,7 @@ router.get("/profile", checkAuthMiddleware, AccountController.getProfile);
  *       500:
  *         description: Internal server error
  */
-router.put("/profile", checkAuthMiddleware, AccountController.updateProfile);
+router.put("/profile", authUserMiddleware, AccountController.updateProfile);
 
 /**
  * @swagger
@@ -237,6 +237,6 @@ router.put("/profile", checkAuthMiddleware, AccountController.updateProfile);
  *       500:
  *         description: Internal server error
  */
-router.put("/change-password", checkAuthMiddleware, AccountController.changePassword);
+router.patch("/change-password", authUserMiddleware, AccountController.changePassword);
 
 module.exports = router;

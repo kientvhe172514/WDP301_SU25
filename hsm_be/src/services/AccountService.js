@@ -130,6 +130,10 @@ const resetPassword = async (token, newPassword) => {
 };
 
 const getProfile = async (accountId) => {
+  if (!accountId || !mongoose.isValidObjectId(accountId)) {
+    throw new Error("Invalid user ID format");
+  }
+
   const account = await Account.findById(accountId)
     .populate("permissions", "PermissionName Note")
     .select("-Password -refreshToken");
@@ -140,10 +144,10 @@ const getProfile = async (accountId) => {
     .populate("hotels", "CodeHotel NameHotel")
     .populate("permission", "PermissionName Note");
 
-  const customer = await Customer.findOne({ accoutId: accountId });
+  const customer = await Customer.findOne({ accountId });
 
-  const roleAssignment = await RoleAssignment.findOne({ account: accountId })
-    .populate("role");
+  const roleAssignment = await RoleAssignment.findOne({ accounts: accountId })
+    .populate("roles", "RoleName");
 
   const profileData = {
     account: {
@@ -152,7 +156,7 @@ const getProfile = async (accountId) => {
       email: account.Email,
       username: account.Username,
       permissions: account.permissions,
-      role: roleAssignment ? roleAssignment.role.RoleName : "",
+      role: roleAssignment?.roles?.[0]?.RoleName || "", 
       isDelete: account.IsDelete,
       createdAt: account.createdAt,
       updatedAt: account.updatedAt,
@@ -169,7 +173,7 @@ const getProfile = async (accountId) => {
       image: employee.Image,
       address: employee.Address,
       hotels: employee.hotels,
-      role: employee.role ? employee.role.RoleName : "",
+      role: roleAssignment?.roles?.[0]?.RoleName || "",
       permission: employee.permission,
       createdAt: employee.createdAt,
       updatedAt: employee.updatedAt,
@@ -183,7 +187,7 @@ const getProfile = async (accountId) => {
       phone: customer.phone,
       cccd: customer.cccd,
       avatar: customer.avatar,
-      role: customer.role ? customer.role.RoleName : "",
+      role: roleAssignment?.roles?.[0]?.RoleName || "",
       createdAt: customer.createdAt,
       updatedAt: customer.updatedAt,
     };
@@ -192,164 +196,184 @@ const getProfile = async (accountId) => {
   return profileData;
 };
 
-// const getProfile = async (userId) => {
-//     try {
-//         // Fetch account details
-//         const account = await Account.findById(userId)
-//             .select("-Password -refreshToken -resetPasswordToken -resetPasswordExpires")
-//             .lean();
-
-//         if (!account) {
-//             throw new Error("Account not found");
-//         }
-
-//         // Fetch role assignment to determine user role
-//         const roleAssignment = await RoleAssignment.findOne({ account: userId })
-//             .populate("role")
-//             .lean();
-
-//         let role = "Customer"; // Default role
-//         if (roleAssignment && roleAssignment.role) {
-//             role = roleAssignment.role.RoleName;
-//         }
-
-//         // Fetch customer or employee details based on role
-//         let customer = null;
-//         let employee = null;
-
-//         if (role === "Customer") {
-//             customer = await Customer.findOne({ accountId: userId }).lean();
-//         } else {
-//             employee = await Employee.findOne({ accountId: userId })
-//                 .populate("hotels permission")
-//                 .lean();
-//         }
-
-//         return {
-//             account: {
-//                 fullName: account.FullName,
-//                 username: account.Username,
-//                 email: account.Email,
-//                 createdAt: account.createdAt,
-//             },
-//             customer,
-//             employee,
-//             role,
-//         };
-//     } catch (error) {
-//         throw new Error(error.message || "Unable to fetch profile");
-//     }
-// };
-
 const updateProfile = async (accountId, data) => {
   const { fullName, username, phone, gender, address, image, cccd, email } = data;
 
-  if (!fullName || !username) throw new Error("Full name and username are required");
+  // Validate required fields
+  if (!fullName) throw new Error("Full name is required");
 
-  const existingAccount = await Account.findOne({
-    Username: username,
-    _id: { $ne: accountId },
-  });
-  if (existingAccount) throw new Error("Username already exists");
+  // Fetch current account to compare changes
+  const currentAccount = await Account.findById(accountId).select("Username Email");
+  if (!currentAccount) throw new Error("Account not found");
+
+  // Validate unique fields only if they have changed
+  if (username && username !== currentAccount.Username) {
+    const existingAccount = await Account.findOne({
+      Username: username,
+      _id: { $ne: accountId },
+    });
+    if (existingAccount) throw new Error("Username already exists");
+  }
 
   if (phone && !/^\d{10}$/.test(phone)) throw new Error("Phone number must be exactly 10 digits");
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Invalid email format");
   if (cccd && !/^\d{12}$/.test(cccd)) throw new Error("CCCD must be exactly 12 digits");
 
-  if (phone) {
+  // Fetch current customer to compare phone and cccd
+  const currentCustomer = await Customer.findOne({ accountId }).select("phone cccd");
+
+  if (phone && phone !== currentCustomer?.phone) {
     const existingCustomerByPhone = await Customer.findOne({
       phone,
-      accoutId: { $ne: accountId },
+      accountId: { $ne: accountId },
     });
     if (existingCustomerByPhone) throw new Error("Phone number already exists");
   }
 
-  if (cccd) {
+  if (cccd && cccd !== currentCustomer?.cccd) {
     const existingCustomerByCCCD = await Customer.findOne({
       cccd,
-      accoutId: { $ne: accountId },
+      accountId: { $ne: accountId },
     });
     if (existingCustomerByCCCD) throw new Error("CCCD already exists");
   }
 
-  const updatedAccount = await Account.findByIdAndUpdate(
-    accountId,
-    { FullName: fullName, Username: username },
-    { new: true, runValidators: true }
-  )
-    .populate("permissions", "PermissionName Note")
-    .select("-Password -refreshToken");
+  // Start a session for atomic updates
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  if (!updatedAccount) throw new Error("Account not found");
+  try {
+    // Update Account
+    const accountUpdateData = { FullName: fullName };
+    if (username && username !== currentAccount.Username) accountUpdateData.Username = username;
+    if (email && email !== currentAccount.Email) accountUpdateData.Email = email;
 
-  let updatedEmployee = null;
-  const employee = await Employee.findOne({ accountId });
-  if (employee) {
-    const employeeUpdateData = { FullName: fullName };
-    if (phone !== undefined) employeeUpdateData.Phone = phone;
-    if (gender !== undefined) employeeUpdateData.Gender = gender;
-    if (address !== undefined) employeeUpdateData.Address = address;
-    if (image !== undefined) employeeUpdateData.Image = image;
-    if (email !== undefined) employeeUpdateData.Email = email;
+    const updatedAccount = await Account.findByIdAndUpdate(
+      accountId,
+      accountUpdateData,
+      { new: true, runValidators: true, session }
+    )
+      .populate("permissions", "PermissionName Note")
+      .select("-Password -refreshToken");
 
-    updatedEmployee = await Employee.findByIdAndUpdate(employee._id, employeeUpdateData, {
-      new: true,
-      runValidators: true,
-    })
-      .populate("hotels", "name")
-      .populate("permission", "PermissionName Note");
-  }
+    if (!updatedAccount) throw new Error("Account not found");
 
-  let updatedCustomer = null;
-  const customer = await Customer.findOne({ accoutId: accountId });
-  if (customer) {
-    const customerUpdateData = { full_name: fullName };
-    if (phone !== undefined) customerUpdateData.phone = phone;
-    if (cccd !== undefined) customerUpdateData.cccd = cccd;
+    let updatedEmployee = null;
+    let updatedCustomer = null;
 
-    updatedCustomer = await Customer.findByIdAndUpdate(customer._id, customerUpdateData, {
-      new: true,
-      runValidators: true,
-    });
-  }
+    // Check if the account is an Employee
+    const employee = await Employee.findOne({ accountId }).session(session);
+    if (employee) {
+      const employeeUpdateData = { FullName: fullName };
+      if (phone !== undefined && phone !== employee.Phone) employeeUpdateData.Phone = phone;
+      if (gender !== undefined) employeeUpdateData.Gender = gender;
+      if (address !== undefined) employeeUpdateData.Address = address;
+      if (image !== undefined) employeeUpdateData.Image = image;
+      if (email !== undefined && email !== employee.Email) employeeUpdateData.Email = email;
 
-  const responseData = {
-    account: {
-      id: updatedAccount._id,
-      fullName: updatedAccount.FullName,
-      email: updatedAccount.Email,
-      username: updatedAccount.Username,
-      permissions: updatedAccount.permissions,
-      updatedAt: updatedAccount.updatedAt,
-    },
-  };
+      updatedEmployee = await Employee.findByIdAndUpdate(
+        employee._id,
+        employeeUpdateData,
+        { new: true, runValidators: true, session }
+      )
+        .populate("hotels", "CodeHotel NameHotel")
+        .populate("permission", "PermissionName Note");
+    } else {
+      // Check if the account is a Customer
+      const customer = await Customer.findOne({ accountId }).session(session);
+      if (customer) {
+        const customerUpdateData = { full_name: fullName };
+        if (phone !== undefined && phone !== customer.phone) customerUpdateData.phone = phone;
+        if (cccd !== undefined && cccd !== customer.cccd) customerUpdateData.cccd = cccd;
 
-  if (updatedEmployee) {
-    responseData.employee = {
-      id: updatedEmployee._id,
-      fullName: updatedEmployee.FullName,
-      phone: updatedEmployee.Phone,
-      email: updatedEmployee.Email,
-      gender: updatedEmployee.Gender,
-      image: updatedEmployee.Image,
-      address: updatedEmployee.Address,
-      hotels: updatedEmployee.hotels,
-      permission: updatedEmployee.permission,
-      updatedAt: updatedEmployee.updatedAt,
+        updatedCustomer = await Customer.findByIdAndUpdate(
+          customer._id,
+          customerUpdateData,
+          { new: true, runValidators: true, session }
+        );
+      } else {
+        // Create new Customer record if none exists
+        const newCustomer = new Customer({
+          full_name: fullName,
+          phone: phone || "",
+          cccd: cccd || "",
+          accountId,
+          avatar: null,
+        });
+
+        updatedCustomer = await newCustomer.save({ session });
+
+        // Assign Customer role if not already assigned
+        const customerRole = await Roles.findOne({ RoleName: "Customer" }).session(session);
+        if (!customerRole) throw new Error("Customer role not found");
+
+        const roleAssignment = await RoleAssignment.findOne({
+          accounts: accountId,
+        }).session(session);
+
+        if (!roleAssignment) {
+          const newRoleAssignment = new RoleAssignment({
+            roles: [customerRole._id],
+            accounts: [accountId],
+            status: "active",
+          });
+          await newRoleAssignment.save({ session });
+        } else if (!roleAssignment.roles.includes(customerRole._id)) {
+          roleAssignment.roles.push(customerRole._id);
+          await roleAssignment.save({ session });
+        }
+      }
+    }
+
+    // Commit the transaction
+    await session.commitTransaction();
+
+    // Prepare response data
+    const responseData = {
+      account: {
+        id: updatedAccount._id,
+        fullName: updatedAccount.FullName,
+        email: updatedAccount.Email,
+        username: updatedAccount.Username,
+        permissions: updatedAccount.permissions,
+        updatedAt: updatedAccount.updatedAt,
+      },
     };
-  }
 
-  if (updatedCustomer) {
-    responseData.customer = {
-      id: updatedCustomer._id,
-      fullName: updatedCustomer.full_name,
-      phone: updatedCustomer.phone,
-      cccd: updatedCustomer.cccd,
-      updatedAt: updatedCustomer.updatedAt,
-    };
-  }
+    if (updatedEmployee) {
+      responseData.employee = {
+        id: updatedEmployee._id,
+        fullName: updatedEmployee.FullName,
+        phone: updatedEmployee.Phone,
+        email: updatedEmployee.Email,
+        gender: updatedEmployee.Gender,
+        image: updatedEmployee.Image,
+        address: updatedEmployee.Address,
+        hotels: updatedEmployee.hotels,
+        permission: updatedEmployee.permission,
+        updatedAt: updatedEmployee.updatedAt,
+      };
+    }
 
-  return responseData;
+    if (updatedCustomer) {
+      responseData.customer = {
+        id: updatedCustomer._id,
+        fullName: updatedCustomer.full_name,
+        phone: updatedCustomer.phone,
+        cccd: updatedCustomer.cccd,
+        avatar: updatedCustomer.avatar,
+        updatedAt: updatedCustomer.updatedAt,
+      };
+    }
+
+    return responseData;
+  } catch (error) {
+    // Rollback the transaction on error
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
+  }
 };
 
 const changePassword = async (accountId, { currentPassword, newPassword, confirmPassword }) => {

@@ -1,338 +1,772 @@
-// import React from 'react'
+import React, { useState, useEffect, useCallback } from 'react';
+import { Form, Input, Button, Card, Tabs, Spin, message, Typography, Switch, Row, Col, Select, Upload } from 'antd';
+import {
+  UserOutlined,
+  PhoneOutlined,
+  IdcardOutlined,
+  MailOutlined,
+  SaveOutlined,
+  EditOutlined,
+  LockOutlined,
+  SettingOutlined,
+  EyeInvisibleOutlined,
+  EyeTwoTone,
+  CalendarOutlined,
+  HomeOutlined,
+  CameraOutlined,
+  UploadOutlined
+} from '@ant-design/icons';
+import * as AccountService from '../../services/accountService';
+import './profile.css';
 
-// const ProfilePage = () => {
-//   return (
-//     <model-viewer
-//       src="https://cdn.shopify.com/s/files/1/0823/2121/1739/files/3DMODEL2.gltf?v=1726023108"
-//       alt="A 3D model"
-//       auto-rotate
-//       min-camera-orbit="auto auto 18m"
-//       max-camera-orbit="auto auto 18m"
-//       camera-controls
-//       disable-zoom
-//       environment-image="https://cdn.shopify.com/s/files/1/0823/2121/1739/files/clouds.jpg?v=1726024215"
-//       skybox-image="https://cdn.shopify.com/s/files/1/0823/2121/1739/files/cloudyskyeditted.jpg?v=1726025777"
-//       exposure="2.5"
-//       style="width: 100%; height: 700px;">
-//     </model-viewer>
+const { TabPane } = Tabs;
+const { Title, Text } = Typography;
+const { Option } = Select;
 
-//   )
-// }
-
-// export default ProfilePage
-
-
-import React, { useState } from 'react';
-import { User, Phone, Mail, MapPin, Calendar, Building, Shield, Edit3, Camera, Save, X } from 'lucide-react';
-
-const ProfileLayouts = () => {
-  const [activeProfile, setActiveProfile] = useState('customer');
-  const [isEditing, setIsEditing] = useState(false);
-
-  // Sample data for Customer
-  const [customerData, setCustomerData] = useState({
-    full_name: "Nguyễn Văn An",
-    phone: "0123456789",
-    cccd: "123456789012",
-    email: "nguyenvanan@gmail.com",
-    createdAt: "2024-01-15",
-    avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face"
+const ProfilePage = () => {
+  const [profileForm] = Form.useForm();
+  const [passwordForm] = Form.useForm();
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('profile');
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState(null);
+  const [profileData, setProfileData] = useState({
+    account: {},
+    customer: null,
+    employee: null,
+    role: null,
+  });
+  const [profileError, setProfileError] = useState('');
+  const [profileSuccess, setProfileSuccess] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
+  const [settings, setSettings] = useState({
+    emailNotifications: true,
+    twoFactorAuth: false,
+    showOnlineStatus: true,
   });
 
-  // Sample data for Employee
-  const [employeeData, setEmployeeData] = useState({
-    FullName: "Trần Thị Bình",
-    Phone: "0987654321",
-    Email: "tranthibinh@company.com",
-    Gender: "Nữ",
-    Address: "123 Đường ABC, Quận 1, TP.HCM",
-    Image: "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face",
-    hotels: ["Khách sạn Paradise", "Resort Ocean View"],
-    permission: "Quản lý",
-    createdAt: "2023-08-20"
-  });
+  // Auto-clear error/success messages after 3 seconds
+  useEffect(() => {
+    let timer;
+    if (profileError || profileSuccess || passwordError || passwordSuccess) {
+      timer = setTimeout(() => {
+        setProfileError('');
+        setProfileSuccess('');
+        setPasswordError('');
+        setPasswordSuccess('');
+      }, 3000);
+    }
+    return () => clearTimeout(timer);
+  }, [profileError, profileSuccess, passwordError, passwordSuccess]);
 
-  const CustomerProfile = () => (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 p-4">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="bg-white rounded-2xl shadow-xl overflow-hidden mb-6">
-          <div className="relative h-32 bg-gradient-to-r from-blue-600 to-indigo-700">
-            <div className="absolute inset-0 bg-black bg-opacity-20"></div>
-            <div className="absolute -bottom-16 left-8 flex items-end space-x-6">
-              <div className="relative">
+  // Fetch profile data
+  const fetchProfileData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const accessToken = localStorage.getItem('access_token');
+      if (!accessToken) {
+        setProfileError('Không tìm thấy token. Vui lòng đăng nhập lại.');
+        message.error('Không tìm thấy token. Vui lòng đăng nhập lại.');
+        return;
+      }
+
+      const response = await AccountService.getProfile(accessToken);
+      if (response.status === 'Success' && response.data) {
+        const data = response.data;
+        setProfileData(data);
+        setAvatarPreview(data.customer?.avatar || data.employee?.image || data.account.avatar);
+        profileForm.setFieldsValue({
+          fullName: data.customer?.fullName || data.employee?.fullName || data.account.fullName || '',
+          username: data.account.username || '',
+          phone: data.customer?.phone || data.employee?.phone || '',
+          cccd: data.customer?.cccd || '',
+          email: data.account.email || data.employee?.email || '',
+          gender: data.employee?.gender || '',
+          address: data.employee?.address || '',
+        });
+      } else {
+        const errorMsg = response.message || 'Không thể tải thông tin profile';
+        setProfileError(errorMsg);
+        message.error(errorMsg);
+      }
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || 'Lỗi tải thông tin profile';
+      setProfileError(errorMsg);
+      message.error(errorMsg);
+    } finally {
+      setLoading(false);
+    }
+  }, [profileForm]);
+
+  useEffect(() => {
+    fetchProfileData();
+  }, [fetchProfileData]);
+
+
+  const handleAvatarChange = ({ file }) => {
+    if (file) {
+      if (!['image/jpeg', 'image/png'].includes(file.type)) {
+        message.error('Chỉ hỗ trợ định dạng JPG hoặc PNG!');
+        return;
+      }
+      if (file.size > 2 * 1024 * 1024) {
+        message.error('Kích thước ảnh không được vượt quá 2MB!');
+        return;
+      }
+      setAvatarFile(file);
+      const reader = new FileReader();
+      reader.onload = () => setAvatarPreview(reader.result);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Handle profile form submission
+  const handleProfileSubmit = async (values) => {
+    try {
+      const accessToken = localStorage.getItem('access_token');
+      if (!accessToken) {
+        setProfileError('Không tìm thấy token. Vui lòng đăng nhập lại.');
+        message.error('Không tìm thấy token. Vui lòng đăng nhập lại.');
+        return;
+      }
+
+      const formData = new FormData();
+      Object.keys(values).forEach(key => {
+        if (values[key] !== undefined && values[key] !== null) {
+          formData.append(key, values[key]);
+        }
+      });
+      if (avatarFile) {
+        formData.append('image', avatarFile);
+      }
+
+      const response = await AccountService.updateProfile(accessToken, formData);
+      if (response.status === 'Success') {
+        setProfileSuccess('Cập nhật thông tin thành công!');
+        message.success('Cập nhật thông tin thành công!');
+        setIsEditingProfile(false);
+        setAvatarFile(null);
+        await fetchProfileData();
+      } else {
+        const errorMsg = response.message || 'Không thể cập nhật thông tin';
+        setProfileError(errorMsg);
+        message.error(errorMsg);
+      }
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || 'Lỗi cập nhật thông tin';
+      setProfileError(errorMsg);
+      message.error(errorMsg);
+    }
+  };
+
+  // Handle password form submission
+  const handlePasswordSubmit = async (values) => {
+    try {
+      const accessToken = localStorage.getItem('access_token');
+      if (!accessToken) {
+        setPasswordError('Không tìm thấy token. Vui lòng đăng nhập lại.');
+        message.error('Không tìm thấy token. Vui lòng đăng nhập lại.');
+        return;
+      }
+
+      const response = await AccountService.changePassword(accessToken, {
+        currentPassword: values.currentPassword,
+        newPassword: values.newPassword,
+      });
+      if (response.status === 'Success') {
+        setPasswordSuccess('Đổi mật khẩu thành công!');
+        message.success('Đổi mật khẩu thành công!');
+        passwordForm.resetFields();
+      } else {
+        const errorMsg = response.message || 'Không thể đổi mật khẩu';
+        setPasswordError(errorMsg);
+        message.error(errorMsg);
+      }
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || 'Lỗi đổi mật khẩu';
+      setPasswordError(errorMsg);
+      message.error(errorMsg);
+    }
+  };
+
+  // Handle settings change
+  const handleSettingsChange = (key, checked) => {
+    setSettings((prev) => ({ ...prev, [key]: checked }));
+    message.success(`Đã cập nhật cài đặt: ${key}`);
+  };
+
+  // Customer Profile Component
+  const CustomerProfile = () => {
+    console.log('Rendering CustomerProfile, isEditingProfile:', isEditingProfile);
+    return (
+      <Card className="customer-profile">
+        <div className="header-background">
+          <div className="header-overlay">
+            <div className="header-content">
+              <div className="avatar-container">
                 <img
-                  src={customerData.avatar}
-                  alt="Avatar"
-                  className="w-32 h-32 rounded-full border-4 border-white shadow-lg object-cover"
+                  src={avatarPreview || profileData.customer?.avatar || profileData.account?.avatar || 'https://media.istockphoto.com/id/1300845620/vector/user-icon-flat-isolated-on-white-background-user-symbol-vector-illustration.jpg?s=612x612&w=0&k=20&c=yBeyba0hUkh14_jgv1OKqIH0CCSWU_4ckRkAoy2p73o='}
+                  alt="Profile avatar"
+                  className="avatar"
+                  onError={(e) => {
+                    e.target.src = 'https://via.placeholder.com/150?text=Avatar';
+                  }}
                 />
-                <button className="absolute bottom-2 right-2 bg-blue-600 text-white p-2 rounded-full hover:bg-blue-700 transition-colors shadow-lg">
-                  <Camera size={16} />
-                </button>
+                {isEditingProfile && (
+                  <Upload
+                    accept="image/*"
+                    showUploadList={false}
+                    beforeUpload={() => false}
+                    onChange={handleAvatarChange}
+                  >
+                    <Button className="avatar-button" icon={<CameraOutlined />} />
+                  </Upload>
+                )}
               </div>
-              <div className="pb-4">
-                <h1 className="text-2xl font-bold text-white mb-1">{customerData.full_name}</h1>
-                <p className="text-blue-100">Khách hàng thân thiết</p>
+              <div className="header-info">
+                <h1 className="header-title">{profileData.account?.fullName || 'Khách hàng'}</h1>
+                <p className="header-subtitle">Khách hàng thân thiết</p>
               </div>
             </div>
-            <button
-              onClick={() => setIsEditing(!isEditing)}
-              className="absolute top-4 right-4 bg-white bg-opacity-20 backdrop-blur-sm text-white p-2 rounded-lg hover:bg-opacity-30 transition-all"
+          </div>
+        </div>
+        <div className="profile-content">
+          <Title level={3}>Thông tin khách hàng</Title>
+          <Button
+            icon={isEditingProfile ? <LockOutlined /> : <EditOutlined />}
+            className="edit-button"
+            onClick={() => {
+              console.log('Edit button clicked, toggling isEditingProfile to:', !isEditingProfile);
+              setIsEditingProfile(!isEditingProfile);
+              if (!isEditingProfile) {
+                profileForm.validateFields();
+              }
+            }}
+          >
+            {isEditingProfile ? 'Hủy' : 'Chỉnh sửa'}
+          </Button>
+          {isEditingProfile ? (
+            <Form
+              form={profileForm}
+              layout="vertical"
+              onFinish={handleProfileSubmit}
+              initialValues={{
+                fullName: profileData.customer?.fullName || profileData.account?.fullName || '',
+                username: profileData.account?.username || '',
+                phone: profileData.customer?.phone || '',
+                cccd: profileData.customer?.cccd || '',
+                email: profileData.account?.email || '',
+              }}
             >
-              {isEditing ? <X size={20} /> : <Edit3 size={20} />}
-            </button>
-          </div>
-          <div className="pt-20 px-8 pb-8">
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-xl">
-                  <div className="bg-blue-100 p-2 rounded-lg">
-                    <Phone className="text-blue-600" size={20} />
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Form.Item
+                    label="Họ và tên"
+                    name="fullName"
+                    rules={[{ required: true, message: 'Vui lòng nhập họ và tên' }]}
+                  >
+                    <Input prefix={<UserOutlined />} />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item
+                    label="Tên đăng nhập"
+                    name="username"
+                    rules={[{ required: true, message: 'Vui lòng nhập tên đăng nhập' }]}
+                  >
+                    <Input prefix={<UserOutlined />} />
+                  </Form.Item>
+                </Col>
+              </Row>
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Form.Item
+                    label="Số điện thoại"
+                    name="phone"
+                    rules={[{ pattern: /^[0-9]{10}$/, message: 'Số điện thoại phải có 10 chữ số' }]}
+                  >
+                    <Input prefix={<PhoneOutlined />} />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item
+                    label="CCCD"
+                    name="cccd"
+                    rules={[{ pattern: /^[0-9]{12}$/, message: 'CCCD phải có 12 chữ số' }]}
+                  >
+                    <Input prefix={<IdcardOutlined />} />
+                  </Form.Item>
+                </Col>
+              </Row>
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Form.Item label="Email" name="email">
+                    <Input prefix={<MailOutlined />} disabled />
+                  </Form.Item>
+                </Col>
+              </Row>
+              {profileError && <p className="error-message">{profileError}</p>}
+              {profileSuccess && <p className="success-message">{profileSuccess}</p>}
+              <Form.Item>
+                <Button type="primary" className="submit-button" htmlType="submit" icon={<SaveOutlined />}>
+                  Lưu thay đổi
+                </Button>
+              </Form.Item>
+            </Form>
+          ) : (
+            <div className="info-grid">
+              <Row gutter={16}>
+                <Col span={12}>
+                  <div className="info-card">
+                    <PhoneOutlined style={{ fontSize: '20px', marginRight: '8px' }} />
+                    <div>
+                      <Text strong>Số điện thoại:</Text>
+                      <p>{profileData.customer?.phone || 'Chưa cập nhật'}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Số điện thoại</p>
-                    <p className="font-semibold text-gray-800">{customerData.phone}</p>
+                </Col>
+                <Col span={12}>
+                  <div className="info-card">
+                    <MailOutlined style={{ fontSize: '20px', marginRight: '8px' }} />
+                    <div>
+                      <Text strong>Email:</Text>
+                      <p>{profileData.account?.email || 'Chưa cập nhật'}</p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-xl">
-                  <div className="bg-green-100 p-2 rounded-lg">
-                    <Mail className="text-green-600" size={20} />
+                </Col>
+              </Row>
+              <Row gutter={16}>
+                <Col span={12}>
+                  <div className="info-card">
+                    <IdcardOutlined style={{ fontSize: '20px', marginRight: '8px' }} />
+                    <div>
+                      <Text strong>CCCD:</Text>
+                      <p>{profileData.customer?.cccd || 'Chưa cập nhật'}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Email</p>
-                    <p className="font-semibold text-gray-800">{customerData.email}</p>
+                </Col>
+                <Col span={12}>
+                  <div className="info-card">
+                    <CalendarOutlined style={{ fontSize: '20px', marginRight: '8px' }} />
+                    <div>
+                      <Text strong>Ngày tham gia:</Text>
+                      <p>
+                        {profileData.account?.createdAt
+                          ? new Date(profileData.account.createdAt).toLocaleDateString('vi-VN')
+                          : 'Chưa cập nhật'}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              </div>
-              <div className="space-y-4">
-                <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-xl">
-                  <div className="bg-purple-100 p-2 rounded-lg">
-                    <User className="text-purple-600" size={20} />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">CCCD</p>
-                    <p className="font-semibold text-gray-800">{customerData.cccd}</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-xl">
-                  <div className="bg-orange-100 p-2 rounded-lg">
-                    <Calendar className="text-orange-600" size={20} />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Ngày tham gia</p>
-                    <p className="font-semibold text-gray-800">{new Date(customerData.createdAt).toLocaleDateString('vi-VN')}</p>
-                  </div>
-                </div>
-              </div>
+                </Col>
+              </Row>
             </div>
-          </div>
+          )}
         </div>
+      </Card>
+    );
+  };
 
-        {/* Stats Cards */}
-        <div className="grid md:grid-cols-3 gap-6">
-          <div className="bg-white p-6 rounded-xl shadow-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Tổng đơn hàng</p>
-                <p className="text-2xl font-bold text-gray-800">24</p>
-              </div>
-              <div className="bg-blue-100 p-3 rounded-full">
-                <Building className="text-blue-600" size={24} />
-              </div>
-            </div>
-          </div>
-          <div className="bg-white p-6 rounded-xl shadow-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Tổng chi tiêu</p>
-                <p className="text-2xl font-bold text-gray-800">15.2M</p>
-              </div>
-              <div className="bg-green-100 p-3 rounded-full">
-                <Calendar className="text-green-600" size={24} />
-              </div>
-            </div>
-          </div>
-          <div className="bg-white p-6 rounded-xl shadow-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500 mb-1">Điểm thưởng</p>
-                <p className="text-2xl font-bold text-gray-800">1,250</p>
-              </div>
-              <div className="bg-yellow-100 p-3 rounded-full">
-                <Shield className="text-yellow-600" size={24} />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
+  // Employee Profile Component
   const EmployeeProfile = () => (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-4">
-      <div className="max-w-5xl mx-auto">
-        {/* Header */}
-        <div className="bg-white rounded-2xl shadow-xl overflow-hidden mb-6">
-          <div className="relative h-40 bg-gradient-to-r from-emerald-600 to-teal-700">
-            <div className="absolute inset-0 bg-black bg-opacity-20"></div>
-            <div className="absolute -bottom-20 left-8 flex items-end space-x-6">
-              <div className="relative">
-                <img
-                  src={employeeData.Image}
-                  alt="Avatar"
-                  className="w-40 h-40 rounded-full border-4 border-white shadow-xl object-cover"
-                />
-                <button className="absolute bottom-3 right-3 bg-emerald-600 text-white p-2 rounded-full hover:bg-emerald-700 transition-colors shadow-lg">
-                  <Camera size={18} />
-                </button>
-              </div>
-              <div className="pb-6">
-                <h1 className="text-3xl font-bold text-white mb-2">{employeeData.FullName}</h1>
-                <div className="flex items-center space-x-2 mb-1">
-                  <Shield className="text-emerald-200" size={16} />
-                  <p className="text-emerald-100 font-medium">{employeeData.permission}</p>
-                </div>
-                <p className="text-emerald-200">{employeeData.Gender}</p>
-              </div>
+    <Card className="employee-profile">
+      <div className="header-background employee-header">
+        <div className="header-overlay">
+          <div className="header-content">
+            <div className="avatar-container">
+              <img
+                src={avatarPreview || profileData.employee?.image || profileData.account.avatar || 'https://media.istockphoto.com/id/1300845620/vector/user-icon-flat-isolated-on-white-background-user-symbol-vector-illustration.jpg?s=612x612&w=0&k=20&c=yBeyba0hUkh14_jgv1OKqIH0CCSWU_4ckRkAoy2p73o='}
+                alt="Profile avatar"
+                className="avatar employee-avatar"
+                onError={(e) => {
+                  e.target.src = 'https://via.placeholder.com/150?text=Avatar';
+                }}
+              />
+              {isEditingProfile && (
+                <Upload
+                  accept="image/*"
+                  showUploadList={false}
+                  beforeUpload={() => false}
+                  onChange={handleAvatarChange}
+                >
+                  <Button className="avatar-button" icon={<CameraOutlined />} />
+                </Upload>
+              )}
             </div>
-            <button
-              onClick={() => setIsEditing(!isEditing)}
-              className="absolute top-4 right-4 bg-white bg-opacity-20 backdrop-blur-sm text-white p-2 rounded-lg hover:bg-opacity-30 transition-all"
-            >
-              {isEditing ? <X size={20} /> : <Edit3 size={20} />}
-            </button>
-          </div>
-          
-          <div className="pt-24 px-8 pb-8">
-            <div className="grid lg:grid-cols-3 gap-8">
-              {/* Contact Info */}
-              <div className="lg:col-span-2">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Thông tin liên hệ</h3>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-4 rounded-xl border border-blue-200">
-                    <div className="flex items-center space-x-3">
-                      <div className="bg-blue-500 p-2 rounded-lg">
-                        <Phone className="text-white" size={18} />
-                      </div>
-                      <div>
-                        <p className="text-sm text-blue-600 font-medium">Số điện thoại</p>
-                        <p className="font-semibold text-gray-800">{employeeData.Phone}</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="bg-gradient-to-r from-green-50 to-green-100 p-4 rounded-xl border border-green-200">
-                    <div className="flex items-center space-x-3">
-                      <div className="bg-green-500 p-2 rounded-lg">
-                        <Mail className="text-white" size={18} />
-                      </div>
-                      <div>
-                        <p className="text-sm text-green-600 font-medium">Email</p>
-                        <p className="font-semibold text-gray-800">{employeeData.Email}</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="md:col-span-2 bg-gradient-to-r from-purple-50 to-purple-100 p-4 rounded-xl border border-purple-200">
-                    <div className="flex items-start space-x-3">
-                      <div className="bg-purple-500 p-2 rounded-lg">
-                        <MapPin className="text-white" size={18} />
-                      </div>
-                      <div>
-                        <p className="text-sm text-purple-600 font-medium">Địa chỉ</p>
-                        <p className="font-semibold text-gray-800">{employeeData.Address}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Hotels */}
-                <div className="mt-6">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Khách sạn được phân công</h3>
-                  <div className="space-y-3">
-                    {employeeData.hotels.map((hotel, index) => (
-                      <div key={index} className="bg-gradient-to-r from-orange-50 to-yellow-50 p-4 rounded-xl border border-orange-200">
-                        <div className="flex items-center space-x-3">
-                          <div className="bg-orange-500 p-2 rounded-lg">
-                            <Building className="text-white" size={18} />
-                          </div>
-                          <p className="font-semibold text-gray-800">{hotel}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+            <div className="header-info">
+              <h1 className="header-title employee-title">{profileData.employee?.fullName || 'Nhân viên'}</h1>
+              <div className="employee-permission">
+                <SettingOutlined style={{ fontSize: '16px', marginRight: '8px' }} />
+                <Text>{profileData.account.permissions?.[0]?.PermissionName || 'Chưa cập nhật'}</Text>
               </div>
-              
-              {/* Sidebar */}
-              <div className="space-y-6">
-                <div className="bg-gray-50 p-6 rounded-xl">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Thông tin khác</h3>
-                  <div className="space-y-4">
-                    <div className="flex items-center space-x-3">
-                      <Calendar className="text-gray-500" size={16} />
-                      <div>
-                        <p className="text-sm text-gray-500">Ngày tham gia</p>
-                        <p className="font-medium">{new Date(employeeData.createdAt).toLocaleDateString('vi-VN')}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <Shield className="text-gray-500" size={16} />
-                      <div>
-                        <p className="text-sm text-gray-500">Quyền hạn</p>
-                        <p className="font-medium">{employeeData.permission}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="bg-emerald-50 p-6 rounded-xl border border-emerald-200">
-                  <h4 className="font-semibold text-emerald-800 mb-2">Trạng thái hoạt động</h4>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                    <span className="text-green-700 font-medium">Đang hoạt động</span>
-                  </div>
-                </div>
-              </div>
+              <p className="header-subtitle">{profileData.employee?.gender || 'Chưa cập nhật'}</p>
             </div>
           </div>
         </div>
       </div>
-    </div>
+      <div className="employee-content">
+        {/* <Title level={3}>Thông tin nhân viên</Title> */}
+        <Button
+          icon={isEditingProfile ? <LockOutlined /> : <EditOutlined />}
+          className="edit-button"
+          onClick={() => {
+            setIsEditingProfile(!isEditingProfile);
+            if (!isEditingProfile) {
+              profileForm.validateFields();
+            }
+          }}
+        >
+          {isEditingProfile ? 'Hủy' : 'Chỉnh sửa'}
+        </Button>
+        {isEditingProfile ? (
+          <Form
+            form={profileForm}
+            layout="vertical"
+            onFinish={handleProfileSubmit}
+            initialValues={{
+              fullName: profileData.employee?.fullName || profileData.account.fullName || '',
+              username: profileData.account.username || '',
+              phone: profileData.employee?.phone || '',
+              email: profileData.employee?.email || profileData.account.email || '',
+              gender: profileData.employee?.gender || '',
+              address: profileData.employee?.address || '',
+            }}
+          >
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item
+                  label="Họ và tên"
+                  name="fullName"
+                  rules={[{ required: true, message: 'Vui lòng nhập họ và tên' }]}
+                >
+                  <Input prefix={<UserOutlined />} />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item
+                  label="Tên đăng nhập"
+                  name="username"
+                  rules={[{ required: true, message: 'Vui lòng nhập tên đăng nhập' }]}
+                >
+                  <Input prefix={<UserOutlined />} />
+                </Form.Item>
+              </Col>
+            </Row>
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item
+                  label="Số điện thoại"
+                  name="phone"
+                  rules={[{ pattern: /^[0-9]{10}$/, message: 'Số điện thoại phải có 10 chữ số' }]}
+                >
+                  <Input prefix={<PhoneOutlined />} />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item label="Email" name="email">
+                  <Input prefix={<MailOutlined />} disabled />
+                </Form.Item>
+              </Col>
+            </Row>
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item label="Giới tính" name="gender">
+                  <Select placeholder="Chọn giới tính">
+                    <Option value="Nam">Nam</Option>
+                    <Option value="Nữ">Nữ</Option>
+                    <Option value="Khác">Khác</Option>
+                  </Select>
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item label="Địa chỉ" name="address">
+                  <Input prefix={<HomeOutlined />} />
+                </Form.Item>
+              </Col>
+            </Row>
+            {profileError && <p className="error-message">{profileError}</p>}
+            {profileSuccess && <p className="success-message">{profileSuccess}</p>}
+            <Form.Item>
+              <Button type="primary" className="submit-button" htmlType="submit" icon={<SaveOutlined />}>
+                Lưu thay đổi
+              </Button>
+            </Form.Item>
+          </Form>
+        ) : (
+          <div className="employee-grid">
+            <div className="contact-section">
+              <Title level={4}>Thông tin liên hệ</Title>
+              <Row gutter={16}>
+                <Col span={12}>
+                  <div className="contact-card">
+                    <PhoneOutlined style={{ fontSize: '18px', marginRight: '8px' }} />
+                    <div>
+                      <Text className="info-label">Số điện thoại</Text>
+                      <p className="info-value">{profileData.employee?.phone || 'Chưa cập nhật'}</p>
+                    </div>
+                  </div>
+                </Col>
+                <Col span={12}>
+                  <div className="contact-card green">
+                    <MailOutlined style={{ fontSize: '18px', marginRight: '8px' }} />
+                    <div>
+                      <Text className="info-label">Email</Text>
+                      <p className="info-value">{profileData.employee?.email || profileData.account.email || 'Chưa cập nhật'}</p>
+                    </div>
+                  </div>
+                </Col>
+              </Row>
+              <Row gutter={16}>
+                <Col span={12}>
+                  <div className="contact-card purple">
+                    <HomeOutlined style={{ fontSize: '18px', marginRight: '8px' }} />
+                    <div>
+                      <Text className="info-label">Địa chỉ</Text>
+                      <p className="info-value">{profileData.employee?.address || 'Chưa cập nhật'}</p>
+                    </div>
+                  </div>
+                </Col>
+              </Row>
+              {profileData.employee?.hotels && profileData.employee.hotels.length > 0 && (
+                <div className="contact-section">
+                  <Title level={4}>Khách sạn được phân công</Title>
+                  {profileData.employee.hotels.map((hotel, index) => (
+                    <div key={index} className="hotel-card">
+                      <HomeOutlined style={{ fontSize: '18px', marginRight: '8px' }} />
+                      <div>
+                        <Text strong>{hotel.CodeHotel || 'Mã khách sạn'}:</Text>
+                        <p>{hotel.NameHotel || 'Tên khách sạn'}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="sidebar">
+              <div className="sidebar-card">
+                <Title level={4}>Thông tin khác</Title>
+                <div className="info-grid">
+                  <div className="info-card">
+                    <CalendarOutlined style={{ fontSize: '16px', marginRight: '8px' }} />
+                    <div>
+                      <Text strong>Ngày tham gia:</Text>
+                      <p>
+                        {profileData.employee?.createdAt
+                          ? new Date(profileData.employee.createdAt).toLocaleDateString('vi-VN')
+                          : 'Chưa cập nhật'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="info-card">
+                    <SettingOutlined style={{ fontSize: '16px', marginRight: '8px' }} />
+                    <div>
+                      <Text strong>Quyền hạn:</Text>
+                      <p>{profileData.account.permissions?.[0]?.PermissionName || 'Chưa cập nhật'}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </Card>
   );
+
+  // Password Tab Content
+  const PasswordTab = () => (
+    <Card className="password-card">
+      <div className="password-header">
+        <LockOutlined className="password-icon" style={{ fontSize: '24px' }} />
+        <div>
+          <Title level={3} style={{ margin: 0 }}>Đổi mật khẩu</Title>
+          <p>Cập nhật mật khẩu để bảo mật tài khoản của bạn</p>
+        </div>
+      </div>
+      <Form
+        form={passwordForm}
+        layout="vertical"
+        onFinish={handlePasswordSubmit}
+        className="password-form"
+      >
+        <Form.Item
+          label="Mật khẩu hiện tại"
+          name="currentPassword"
+          rules={[{ required: true, message: 'Vui lòng nhập mật khẩu hiện tại' }]}
+        >
+          <Input.Password
+            prefix={<LockOutlined />}
+            iconRender={(visible) => (visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />)}
+          />
+        </Form.Item>
+        <Form.Item
+          label="Mật khẩu mới"
+          name="newPassword"
+          rules={[
+            { required: true, message: 'Vui lòng nhập mật khẩu mới' },
+            { min: 8, message: 'Mật khẩu phải có ít nhất 8 ký tự' },
+          ]}
+        >
+          <Input.Password
+            prefix={<LockOutlined />}
+            iconRender={(visible) => (visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />)}
+          />
+        </Form.Item>
+        <Form.Item
+          label="Xác nhận mật khẩu mới"
+          name="confirmPassword"
+          dependencies={['newPassword']}
+          rules={[
+            { required: true, message: 'Vui lòng xác nhận mật khẩu mới' },
+            ({ getFieldValue }) => ({
+              validator(_, value) {
+                if (!value || getFieldValue('newPassword') === value) {
+                  return Promise.resolve();
+                }
+                return Promise.reject(new Error('Mật khẩu xác nhận không khớp'));
+              },
+            }),
+          ]}
+        >
+          <Input.Password
+            prefix={<LockOutlined />}
+            iconRender={(visible) => (visible ? <EyeTwoTone /> : <EyeInvisibleOutlined />)}
+          />
+        </Form.Item>
+        {passwordError && <p className="error-message">{passwordError}</p>}
+        {passwordSuccess && <p className="success-message">{passwordSuccess}</p>}
+        <Form.Item className="password-actions">
+          <Button type="primary" htmlType="submit" icon={<SaveOutlined />} className="password-submit-button">
+            Cập nhật mật khẩu
+          </Button>
+        </Form.Item>
+        <div className="password-tips">
+          <Text strong>Lưu ý khi tạo mật khẩu mạnh:</Text>
+          <ul>
+            <li>Sử dụng ít nhất 8 ký tự</li>
+            <li>Kết hợp chữ hoa, chữ thường, số và ký tự đặc biệt</li>
+            <li>Không sử dụng thông tin cá nhân dễ đoán</li>
+            <li>Thay đổi mật khẩu định kỳ</li>
+          </ul>
+        </div>
+      </Form>
+    </Card>
+  );
+
+  // Settings Tab Content
+  const SettingsTab = () => (
+    <Card className="settings-card">
+      <div className="settings-header">
+        <SettingOutlined className="settings-icon" style={{ fontSize: '24px' }} />
+        <div>
+          <Title level={3} style={{ margin: 0 }}>Cài đặt tài khoản</Title>
+          <p>Quản lý các thiết lập tài khoản của bạn</p>
+        </div>
+      </div>
+      <div className="settings-content">
+        <div className="setting-item">
+          <div>
+            <Text strong>Thông báo email</Text>
+            <p>Nhận thông báo qua email về hoạt động tài khoản</p>
+          </div>
+          <Switch
+            checked={settings.emailNotifications}
+            onChange={(checked) => handleSettingsChange('emailNotifications', checked)}
+          />
+        </div>
+        <div className="setting-item">
+          <div>
+            <Text strong>Xác thực hai bước</Text>
+            <p>Tăng cường bảo mật với xác thực hai bước</p>
+          </div>
+          <Switch
+            checked={settings.twoFactorAuth}
+            onChange={(checked) => handleSettingsChange('twoFactorAuth', checked)}
+          />
+        </div>
+        <div className="setting-item">
+          <div>
+            <Text strong>Hiển thị trạng thái hoạt động</Text>
+            <p>Cho phép người khác thấy khi bạn đang online</p>
+          </div>
+          <Switch
+            checked={settings.showOnlineStatus}
+            onChange={(checked) => handleSettingsChange('showOnlineStatus', checked)}
+          />
+        </div>
+      </div>
+    </Card>
+  );
+
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <Spin size="large" />
+        <p>Đang tải thông tin...</p>
+      </div>
+    );
+  }
+
+  const showEmployeeProfile = profileData.employee || profileData.role;
 
   return (
-    <div>
-      {/* Tab Navigation */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-5xl mx-auto px-4">
-          <div className="flex space-x-8">
-            <button
-              onClick={() => setActiveProfile('customer')}
-              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
-                activeProfile === 'customer'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Customer Profile
-            </button>
-            <button
-              onClick={() => setActiveProfile('employee')}
-              className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
-                activeProfile === 'employee'
-                  ? 'border-emerald-500 text-emerald-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Employee Profile
-            </button>
-          </div>
-        </div>
+    <div className="profile-page">
+      <div className="profile-wrapper">
+        <Tabs
+          activeKey={activeTab}
+          onChange={(key) => {
+            setActiveTab(key);
+            setIsEditingProfile(false);
+            profileForm.resetFields();
+            passwordForm.resetFields();
+            setProfileError('');
+            setProfileSuccess('');
+            setPasswordError('');
+            setPasswordSuccess('');
+            setAvatarFile(null);
+            setAvatarPreview(null);
+            fetchProfileData();
+          }}
+          className="profile-tabs"
+        >
+          <TabPane
+            tab={
+              <span>
+                <UserOutlined />
+                Thông tin cá nhân
+              </span>
+            }
+            key="profile"
+          >
+            {showEmployeeProfile ? <EmployeeProfile /> : <CustomerProfile />}
+          </TabPane>
+          <TabPane
+            tab={
+              <span>
+                <LockOutlined />
+                Đổi mật khẩu
+              </span>
+            }
+            key="password"
+          >
+            <PasswordTab />
+          </TabPane>
+          <TabPane
+            tab={
+              <span>
+                <SettingOutlined />
+                Cài đặt
+              </span>
+            }
+            key="settings"
+          >
+            <SettingsTab />
+          </TabPane>
+        </Tabs>
       </div>
-
-      {/* Profile Content */}
-      {activeProfile === 'customer' ? <CustomerProfile /> : <EmployeeProfile />}
     </div>
   );
 };
 
-export default ProfileLayouts;
+export default ProfilePage;

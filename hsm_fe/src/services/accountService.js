@@ -154,58 +154,68 @@ export const resetPassword = async (token, newPassword) => {
     }
 };
 
-// Get Profile 
 export const getProfile = async (access_token) => {
-    try {
-        const res = await axiosJWT.get(
-            `${process.env.REACT_APP_API_URL_BACKEND}/account`,
-            {
-                headers: {
-                    token: `Bearer ${access_token}`,
-                },
-            }
-        );
-        return res.data;
-    } catch (error) {
-        console.error("Error fetching profile:", error);
-        throw error;
-    }
+  try {
+    const res = await axiosJWT.get(
+      `${process.env.REACT_APP_API_URL_BACKEND}/account/profile`,
+      {
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+        },
+        withCredentials: true,
+      }
+    );
+    return res.data;
+  } catch (error) {
+    console.error("Get Profile Error:", error);
+    return {
+      status: "Error",
+      message: error.response?.data?.message || "Failed to fetch profile",
+    };
+  }
 };
 
-// Update Profile
-export const updateProfile = async (data, access_token) => {
-    try {
-        const res = await axiosJWT.put(
-            `${process.env.REACT_APP_API_URL_BACKEND}/account`,
-            data,
-            {
-                headers: {
-                    token: `Bearer ${access_token}`,
-                },
-            }
-        );
-        return res.data;
-    } catch (error) {
-        console.error("Error updating profile:", error);
-        throw error;
-    }
+export const updateProfile = async (access_token, profileData) => {
+  try {
+    const res = await axiosJWT.put(
+      `${process.env.REACT_APP_API_URL_BACKEND}/account/profile`,
+      profileData,
+      {
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+        },
+        withCredentials: true,
+      }
+    );
+    return res.data;
+  } catch (error) {
+    console.error("Update Profile Error:", error);
+    return {
+      status: "Error",
+      message: error.response?.data?.message || "Failed to update profile",
+    };
+  }
 };
 
 // Change Password
-export const changePassword = async (data, access_token) => {
-    try {
-        const res = await axiosJWT.put(
-            `${process.env.REACT_APP_API_URL_BACKEND}/account/change-password`,
-            data,
-            {
-                headers: {
-                    token: `Bearer ${access_token}`,
-                },
-            }
-        );
-        return res.data;
-    } catch (error) {
-        console.error("Error changing password:", error);
-        throw error;
-    }
+export const changePassword = async (access_token, passwordData) => {
+  try {
+    const res = await axiosJWT.patch(
+      `${process.env.REACT_APP_API_URL_BACKEND}/account/change-password`,
+      passwordData,
+      {
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+        },
+        withCredentials: true,
+      }
+    );
+    return res.data;
+  } catch (error) {
+    console.error("Change Password Error:", error);
+    return {
+      status: "Error",
+      message: error.response?.data?.message || "Failed to change password",
+    };
+  }
 };

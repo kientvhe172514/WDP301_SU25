@@ -141,6 +141,12 @@ const App = () => {
         }
     };
 
+    const handleAvatarClick = () => {
+        // Navigate to profile page
+        navigate('/profile');
+    };
+
+
     return (
         <Layout style={{ minHeight: "100vh" }}>
             <Routes>
@@ -177,7 +183,11 @@ const App = () => {
                                                             >
                                                                 Logout
                                                             </Button>
-                                                            <Avatar style={{ backgroundColor: "#00363D" }} icon={<UserOutlined />} />
+                                                            <Avatar
+                                                                style={{ backgroundColor: '#00363D', cursor: 'pointer' }}
+                                                                icon={<UserOutlined />}
+                                                                onClick={handleAvatarClick}
+                                                            />
                                                         </div>
                                                     </Header>
 
@@ -271,7 +281,11 @@ const App = () => {
                                                         >
                                                             Logout
                                                         </Button>
-                                                        <Avatar style={{ backgroundColor: "#00363D" }} icon={<UserOutlined />} />
+                                                        <Avatar
+                                                            style={{ backgroundColor: '#00363D', cursor: 'pointer' }}
+                                                            icon={<UserOutlined />}
+                                                            onClick={handleAvatarClick}
+                                                        />
                                                     </div>
                                                 </Header>
 

@@ -92,31 +92,15 @@ exports.resetPassword = async (req, res) => {
   }
 };
 
-// exports.getProfile = async (req, res) => {
-//   try {
-//     if (!req.account) {
-//       return res.status(401).json({
-//         status: "Error",
-//         message: "Unauthorized",
-//       });
-//     }
-//     const accountId = req.account._id;
-//     console.log("Get profile request for accountId:", accountId);
-//     const profileData = await AccountService.getProfile(accountId);
-//     res.status(200).json({
-//       status: "Success",
-//       message: "Get profile successfully",
-//       data: profileData,
-//     });
-//   } catch (err) {
-//     console.error("Get profile error:", err);
-//     res.status(500).json({ status: "Error", message: err.message });
-//   }
-// };
-
 exports.getProfile = async (req, res) => {
     try {
-        const userId = req.account._id;
+        const userId = req.account.id;
+        if (!userId || !mongoose.isValidObjectId(userId)) {
+            return res.status(400).json({
+                status: "ERR",
+                message: "Invalid user ID format",
+            });
+        }
         const profile = await AccountService.getProfile(userId);
         return res.status(200).json({
             message: "Profile fetched successfully",
@@ -132,38 +116,38 @@ exports.getProfile = async (req, res) => {
 };
 
 exports.updateProfile = async (req, res) => {
-  try {
-    const accountId = req.account._id;
-    const data = req.body;
-    const responseData = await AccountService.updateProfile(accountId, data);
-    res.status(200).json({
-      status: "Success",
-      message: "Profile updated successfully",
-      data: responseData,
-    });
-  } catch (err) {
-    if (err.name === "ValidationError") {
-      const errorMessage = Object.values(err.errors)[0].message;
-      return res.status(400).json({ status: "Error", message: errorMessage });
+    try {
+        const accountId = req.account._id;
+        const data = req.body;
+        const responseData = await AccountService.updateProfile(accountId, data);
+        res.status(200).json({
+            status: "Success",
+            message: "Profile updated successfully",
+            data: responseData,
+        });
+    } catch (err) {
+        if (err.name === "ValidationError") {
+            const errorMessage = Object.values(err.errors)[0].message;
+            return res.status(400).json({ status: "Error", message: errorMessage });
+        }
+        if (err.code === 11000) {
+            const field = Object.keys(err.keyValue)[0];
+            return res.status(400).json({
+                status: "Error",
+                message: `${field} already exists`,
+            });
+        }
+        res.status(500).json({ status: "Error", message: err.message });
     }
-    if (err.code === 11000) {
-      const field = Object.keys(err.keyValue)[0];
-      return res.status(400).json({
-        status: "Error",
-        message: `${field} already exists`,
-      });
-    }
-    res.status(500).json({ status: "Error", message: err.message });
-  }
 };
 
 exports.changePassword = async (req, res) => {
-  try {
-    const accountId = req.account._id;
-    const passwordData = req.body;
-    const result = await AccountService.changePassword(accountId, passwordData);
-    res.status(200).json({ status: "Success", ...result });
-  } catch (err) {
-    res.status(400).json({ status: "Error", message: err.message });
-  }
+    try {
+        const accountId = req.account._id;
+        const passwordData = req.body;
+        const result = await AccountService.changePassword(accountId, passwordData);
+        res.status(200).json({ status: "Success", ...result });
+    } catch (err) {
+        res.status(400).json({ status: "Error", message: err.message });
+    }
 };
