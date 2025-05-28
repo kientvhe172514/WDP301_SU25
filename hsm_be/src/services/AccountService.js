@@ -197,10 +197,10 @@ const getProfile = async (accountId) => {
 };
 
 const updateProfile = async (accountId, data) => {
-  const { fullName, username, phone, gender, address, image, cccd, email } = data;
+  const { fullName, username, phone, gender, address, image, cccd, email, avatar } = data;
 
   // Validate required fields
-  if (!fullName) throw new Error("Full name is required");
+  // if (!fullName) throw new Error("Full name is required");
 
   // Fetch current account to compare changes
   const currentAccount = await Account.findById(accountId).select("Username Email");
@@ -220,7 +220,7 @@ const updateProfile = async (accountId, data) => {
   if (cccd && !/^\d{12}$/.test(cccd)) throw new Error("CCCD must be exactly 12 digits");
 
   // Fetch current customer to compare phone and cccd
-  const currentCustomer = await Customer.findOne({ accountId }).select("phone cccd");
+  const currentCustomer = await Customer.findOne({ accountId }).select("phone cccd avatar");
 
   if (phone && phone !== currentCustomer?.phone) {
     const existingCustomerByPhone = await Customer.findOne({
@@ -268,7 +268,9 @@ const updateProfile = async (accountId, data) => {
       if (phone !== undefined && phone !== employee.Phone) employeeUpdateData.Phone = phone;
       if (gender !== undefined) employeeUpdateData.Gender = gender;
       if (address !== undefined) employeeUpdateData.Address = address;
+      // Handle both 'image' (for employee) and 'avatar' parameters
       if (image !== undefined) employeeUpdateData.Image = image;
+      if (avatar !== undefined) employeeUpdateData.Image = avatar;
       if (email !== undefined && email !== employee.Email) employeeUpdateData.Email = email;
 
       updatedEmployee = await Employee.findByIdAndUpdate(
@@ -285,6 +287,8 @@ const updateProfile = async (accountId, data) => {
         const customerUpdateData = { full_name: fullName };
         if (phone !== undefined && phone !== customer.phone) customerUpdateData.phone = phone;
         if (cccd !== undefined && cccd !== customer.cccd) customerUpdateData.cccd = cccd;
+        // Handle avatar update for customer
+        if (avatar !== undefined) customerUpdateData.avatar = avatar;
 
         updatedCustomer = await Customer.findByIdAndUpdate(
           customer._id,
@@ -298,7 +302,7 @@ const updateProfile = async (accountId, data) => {
           phone: phone || "",
           cccd: cccd || "",
           accountId,
-          avatar: null,
+          avatar: avatar || "",
         });
 
         updatedCustomer = await newCustomer.save({ session });

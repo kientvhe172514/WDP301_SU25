@@ -14,7 +14,9 @@ import {
   CalendarOutlined,
   HomeOutlined,
   CameraOutlined,
-  UploadOutlined
+  UploadOutlined,
+  DeleteOutlined,
+  ArrowLeftOutlined
 } from '@ant-design/icons';
 import * as AccountService from '../../services/accountService';
 import './profile.css';
@@ -29,8 +31,8 @@ const ProfilePage = () => {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('profile');
-  const [avatarFile, setAvatarFile] = useState(null);
-  const [avatarPreview, setAvatarPreview] = useState(null);
+  const [imageUrl, setImageUrl] = useState('');
+  const [uploading, setUploading] = useState(false);
   const [profileData, setProfileData] = useState({
     account: {},
     customer: null,
@@ -76,7 +78,6 @@ const ProfilePage = () => {
       if (response.status === 'Success' && response.data) {
         const data = response.data;
         setProfileData(data);
-        setAvatarPreview(data.customer?.avatar || data.employee?.image || data.account.avatar);
         profileForm.setFieldsValue({
           fullName: data.customer?.fullName || data.employee?.fullName || data.account.fullName || '',
           username: data.account.username || '',
@@ -105,22 +106,56 @@ const ProfilePage = () => {
   }, [fetchProfileData]);
 
 
-  const handleAvatarChange = ({ file }) => {
-    if (file) {
-      if (!['image/jpeg', 'image/png'].includes(file.type)) {
-        message.error('Chỉ hỗ trợ định dạng JPG hoặc PNG!');
-        return;
-      }
-      if (file.size > 2 * 1024 * 1024) {
-        message.error('Kích thước ảnh không được vượt quá 2MB!');
-        return;
-      }
-      setAvatarFile(file);
-      const reader = new FileReader();
-      reader.onload = () => setAvatarPreview(reader.result);
-      reader.readAsDataURL(file);
+  // Image upload handler
+  const handleImageUpload = (info) => {
+    if (info.file.status === 'uploading') {
+      setUploading(true);
+      return;
+    }
+    if (info.file.status === 'done') {
+      // Get the uploaded image URL from response
+      const url = info.file.response?.data?.url || info.file.response?.url;
+      setImageUrl(url);
+      setUploading(false);
+      message.success('Tải ảnh thành công!');
+    } else if (info.file.status === 'error') {
+      setUploading(false);
+      message.error('Tải ảnh thất bại!');
     }
   };
+
+  // Convert file to base64 for preview
+  const getBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = error => reject(error);
+    });
+  };
+
+  // Handle local file upload (if no server upload endpoint)
+  const handleLocalImageUpload = async (file) => {
+    try {
+      console.log('Uploading file:', file.name);
+      const base64 = await getBase64(file);
+      console.log('Base64 generated:', base64.substring(0, 50)); // Log first 50 chars for brevity
+      setImageUrl(base64);
+      message.success('Chọn ảnh thành công!');
+      return false; // Prevent upload to server
+    } catch (error) {
+      console.error('Image upload error:', error);
+      message.error('Lỗi khi xử lý ảnh!');
+      return false;
+    }
+  };
+
+  // Remove image
+  const handleRemoveImage = () => {
+    setImageUrl('');
+    message.success('Đã xóa ảnh!');
+  };
+
 
   // Handle profile form submission
   const handleProfileSubmit = async (values) => {
@@ -132,22 +167,18 @@ const ProfilePage = () => {
         return;
       }
 
-      const formData = new FormData();
-      Object.keys(values).forEach(key => {
-        if (values[key] !== undefined && values[key] !== null) {
-          formData.append(key, values[key]);
-        }
-      });
-      if (avatarFile) {
-        formData.append('image', avatarFile);
-      }
+      // Determine user role and set appropriate field (avatar for customer, image for employee)
+      const updateData = {
+        ...values,
+        ...(profileData.employee ? { image: imageUrl || undefined } : { avatar: imageUrl || undefined }),
+      };
 
-      const response = await AccountService.updateProfile(accessToken, formData);
+      const response = await AccountService.updateProfile(accessToken, updateData);
       if (response.status === 'Success') {
         setProfileSuccess('Cập nhật thông tin thành công!');
         message.success('Cập nhật thông tin thành công!');
         setIsEditingProfile(false);
-        setAvatarFile(null);
+        setImageUrl(''); // Reset image URL after successful update
         await fetchProfileData();
       } else {
         const errorMsg = response.message || 'Không thể cập nhật thông tin';
@@ -200,6 +231,8 @@ const ProfilePage = () => {
   // Customer Profile Component
   const CustomerProfile = () => {
     console.log('Rendering CustomerProfile, isEditingProfile:', isEditingProfile);
+    const currentAvatar = imageUrl || profileData.customer?.avatar || profileData.account?.avatar || 'https://media.istockphoto.com/id/1300845620/vector/user-icon-flat-isolated-on-white-background-user-symbol-vector-illustration.jpg?s=612x612&w=0&k=20&c=yBeyba0hUkh14_jgv1OKqIH0CCSWU_4ckRkAoy2p73o=';
+
     return (
       <Card className="customer-profile">
         <div className="header-background">
@@ -207,7 +240,7 @@ const ProfilePage = () => {
             <div className="header-content">
               <div className="avatar-container">
                 <img
-                  src={avatarPreview || profileData.customer?.avatar || profileData.account?.avatar || 'https://media.istockphoto.com/id/1300845620/vector/user-icon-flat-isolated-on-white-background-user-symbol-vector-illustration.jpg?s=612x612&w=0&k=20&c=yBeyba0hUkh14_jgv1OKqIH0CCSWU_4ckRkAoy2p73o='}
+                  src={currentAvatar}
                   alt="Profile avatar"
                   className="avatar"
                   onError={(e) => {
@@ -215,14 +248,30 @@ const ProfilePage = () => {
                   }}
                 />
                 {isEditingProfile && (
-                  <Upload
-                    accept="image/*"
-                    showUploadList={false}
-                    beforeUpload={() => false}
-                    onChange={handleAvatarChange}
-                  >
-                    <Button className="avatar-button" icon={<CameraOutlined />} />
-                  </Upload>
+                  <div className="avatar-upload-controls">
+                    <Upload
+                      name="avatar"
+                      listType="picture"
+                      showUploadList={false}
+                      beforeUpload={handleLocalImageUpload}
+                      accept="image/*"
+                    >
+                      <Button className="avatar-button" icon={<CameraOutlined />} size="small">
+                        Chọn ảnh
+                      </Button>
+                    </Upload>
+                    {imageUrl && (
+                      <Button
+                        className="avatar-button remove-button"
+                        icon={<DeleteOutlined />}
+                        size="small"
+                        onClick={handleRemoveImage}
+                        danger
+                      >
+                        Xóa
+                      </Button>
+                    )}
+                  </div>
                 )}
               </div>
               <div className="header-info">
@@ -242,6 +291,8 @@ const ProfilePage = () => {
               setIsEditingProfile(!isEditingProfile);
               if (!isEditingProfile) {
                 profileForm.validateFields();
+                // Reset image URL when starting edit
+                setImageUrl('');
               }
             }}
           >
@@ -260,6 +311,40 @@ const ProfilePage = () => {
                 email: profileData.account?.email || '',
               }}
             >
+              {/* Image upload section */}
+              <Form.Item label="Ảnh đại diện">
+                <div className="image-upload-section">
+                  <div className="current-image">
+                    <img
+                      src={currentAvatar}
+                      alt="Current avatar"
+                      style={{ width: 100, height: 100, borderRadius: '50%', objectFit: 'cover' }}
+                    />
+                  </div>
+                  <div className="upload-controls">
+                    <Upload
+                      name="avatar"
+                      listType="picture"
+                      showUploadList={false}
+                      beforeUpload={handleLocalImageUpload}
+                      accept="image/*"
+                    >
+                      <Button icon={<UploadOutlined />} loading={uploading}>
+                        Chọn ảnh mới
+                      </Button>
+                    </Upload>
+                    {imageUrl && (
+                      <Button
+                        icon={<DeleteOutlined />}
+                        onClick={handleRemoveImage}
+                        danger
+                      >
+                        Xóa ảnh
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </Form.Item>
               <Row gutter={16}>
                 <Col span={12}>
                   <Form.Item
@@ -369,210 +454,264 @@ const ProfilePage = () => {
   };
 
   // Employee Profile Component
-  const EmployeeProfile = () => (
-    <Card className="employee-profile">
-      <div className="header-background employee-header">
-        <div className="header-overlay">
-          <div className="header-content">
-            <div className="avatar-container">
-              <img
-                src={avatarPreview || profileData.employee?.image || profileData.account.avatar || 'https://media.istockphoto.com/id/1300845620/vector/user-icon-flat-isolated-on-white-background-user-symbol-vector-illustration.jpg?s=612x612&w=0&k=20&c=yBeyba0hUkh14_jgv1OKqIH0CCSWU_4ckRkAoy2p73o='}
-                alt="Profile avatar"
-                className="avatar employee-avatar"
-                onError={(e) => {
-                  e.target.src = 'https://via.placeholder.com/150?text=Avatar';
-                }}
-              />
-              {isEditingProfile && (
-                <Upload
-                  accept="image/*"
-                  showUploadList={false}
-                  beforeUpload={() => false}
-                  onChange={handleAvatarChange}
-                >
-                  <Button className="avatar-button" icon={<CameraOutlined />} />
-                </Upload>
-              )}
-            </div>
-            <div className="header-info">
-              <h1 className="header-title employee-title">{profileData.employee?.fullName || 'Nhân viên'}</h1>
-              <div className="employee-permission">
-                <SettingOutlined style={{ fontSize: '16px', marginRight: '8px' }} />
-                <Text>{profileData.account.permissions?.[0]?.PermissionName || 'Chưa cập nhật'}</Text>
+  const EmployeeProfile = () => {
+    const currentImage = imageUrl || profileData.employee?.image || profileData.account?.avatar || 'https://media.istockphoto.com/id/1300845620/vector/user-icon-flat-isolated-on-white-background-user-symbol-vector-illustration.jpg?s=612x612&w=0&k=20&c=yBeyba0hUkh14_jgv1OKqIH0CCSWU_4ckRkAoy2p73o=';
+
+    return (
+      <Card className="employee-profile">
+        <div className="header-background employee-header">
+          <div className="header-overlay">
+            <div className="header-content">
+              <div className="avatar-container">
+                <img
+                  src={currentImage}
+                  alt="Profile avatar"
+                  className="avatar employee-avatar"
+                  onError={(e) => {
+                    e.target.src = 'https://via.placeholder.com/150?text=Avatar';
+                  }}
+                />
+                {isEditingProfile && (
+                  <div className="avatar-upload-controls">
+                    <Upload
+                      name="image" // Changed from 'avatar' to 'image' to match Employee schema
+                      listType="picture"
+                      showUploadList={false}
+                      beforeUpload={handleLocalImageUpload}
+                      accept="image/*"
+                    >
+                      <Button className="avatar-button" icon={<CameraOutlined />} size="small">
+                        Chọn ảnh
+                      </Button>
+                    </Upload>
+                    {imageUrl && (
+                      <Button
+                        className="avatar-button remove-button"
+                        icon={<DeleteOutlined />}
+                        size="small"
+                        onClick={handleRemoveImage}
+                        danger
+                      >
+                        Xóa
+                      </Button>
+                    )}
+                  </div>
+                )}
               </div>
-              <p className="header-subtitle">{profileData.employee?.gender || 'Chưa cập nhật'}</p>
+              <div className="header-info">
+                <h1 className="header-title employee-title">{profileData.employee?.fullName || 'Nhân viên'}</h1>
+                <div className="employee-permission">
+                  <SettingOutlined style={{ fontSize: '16px', marginRight: '8px' }} />
+                  <Text>{profileData.account.permissions?.[0]?.PermissionName || 'Chưa cập nhật'}</Text>
+                </div>
+                <p className="header-subtitle">{profileData.employee?.gender || 'Chưa cập nhật'}</p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-      <div className="employee-content">
-        {/* <Title level={3}>Thông tin nhân viên</Title> */}
-        <Button
-          icon={isEditingProfile ? <LockOutlined /> : <EditOutlined />}
-          className="edit-button"
-          onClick={() => {
-            setIsEditingProfile(!isEditingProfile);
-            if (!isEditingProfile) {
-              profileForm.validateFields();
-            }
-          }}
-        >
-          {isEditingProfile ? 'Hủy' : 'Chỉnh sửa'}
-        </Button>
-        {isEditingProfile ? (
-          <Form
-            form={profileForm}
-            layout="vertical"
-            onFinish={handleProfileSubmit}
-            initialValues={{
-              fullName: profileData.employee?.fullName || profileData.account.fullName || '',
-              username: profileData.account.username || '',
-              phone: profileData.employee?.phone || '',
-              email: profileData.employee?.email || profileData.account.email || '',
-              gender: profileData.employee?.gender || '',
-              address: profileData.employee?.address || '',
+        <div className="employee-content">
+          <Button
+            icon={isEditingProfile ? <LockOutlined /> : <EditOutlined />}
+            className="edit-button"
+            onClick={() => {
+              setIsEditingProfile(!isEditingProfile);
+              if (!isEditingProfile) {
+                profileForm.validateFields();
+                setImageUrl(''); // Reset imageUrl when starting edit
+              }
             }}
           >
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item
-                  label="Họ và tên"
-                  name="fullName"
-                  rules={[{ required: true, message: 'Vui lòng nhập họ và tên' }]}
-                >
-                  <Input prefix={<UserOutlined />} />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item
-                  label="Tên đăng nhập"
-                  name="username"
-                  rules={[{ required: true, message: 'Vui lòng nhập tên đăng nhập' }]}
-                >
-                  <Input prefix={<UserOutlined />} />
-                </Form.Item>
-              </Col>
-            </Row>
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item
-                  label="Số điện thoại"
-                  name="phone"
-                  rules={[{ pattern: /^[0-9]{10}$/, message: 'Số điện thoại phải có 10 chữ số' }]}
-                >
-                  <Input prefix={<PhoneOutlined />} />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item label="Email" name="email">
-                  <Input prefix={<MailOutlined />} disabled />
-                </Form.Item>
-              </Col>
-            </Row>
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item label="Giới tính" name="gender">
-                  <Select placeholder="Chọn giới tính">
-                    <Option value="Nam">Nam</Option>
-                    <Option value="Nữ">Nữ</Option>
-                    <Option value="Khác">Khác</Option>
-                  </Select>
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item label="Địa chỉ" name="address">
-                  <Input prefix={<HomeOutlined />} />
-                </Form.Item>
-              </Col>
-            </Row>
-            {profileError && <p className="error-message">{profileError}</p>}
-            {profileSuccess && <p className="success-message">{profileSuccess}</p>}
-            <Form.Item>
-              <Button type="primary" className="submit-button" htmlType="submit" icon={<SaveOutlined />}>
-                Lưu thay đổi
-              </Button>
-            </Form.Item>
-          </Form>
-        ) : (
-          <div className="employee-grid">
-            <div className="contact-section">
-              <Title level={4}>Thông tin liên hệ</Title>
+            {isEditingProfile ? 'Hủy' : 'Chỉnh sửa'}
+          </Button>
+          {isEditingProfile ? (
+            <Form
+              form={profileForm}
+              layout="vertical"
+              onFinish={handleProfileSubmit}
+              initialValues={{
+                fullName: profileData.employee?.fullName || profileData.account.fullName || '',
+                username: profileData.account.username || '',
+                phone: profileData.employee?.phone || '',
+                email: profileData.employee?.email || profileData.account.email || '',
+                gender: profileData.employee?.gender || '',
+                address: profileData.employee?.address || '',
+              }}
+            >
+              {/* Image upload section */}
+              <Form.Item label="Ảnh đại diện">
+                <div className="image-upload-section">
+                  <div className="current-image">
+                    <img
+                      src={currentImage}
+                      alt="Current avatar"
+                      style={{ width: 100, height: 100, borderRadius: '50%', objectFit: 'cover' }}
+                    />
+                  </div>
+                  <div className="upload-controls">
+                    <Upload
+                      name="image" // Changed to 'image' to match Employee schema
+                      listType="picture"
+                      showUploadList={false}
+                      beforeUpload={handleLocalImageUpload}
+                      accept="image/*"
+                    >
+                      <Button icon={<UploadOutlined />} loading={uploading}>
+                        Chọn ảnh mới
+                      </Button>
+                    </Upload>
+                    {imageUrl && (
+                      <Button
+                        icon={<DeleteOutlined />}
+                        onClick={handleRemoveImage}
+                        danger
+                      >
+                        Xóa ảnh
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </Form.Item>
               <Row gutter={16}>
                 <Col span={12}>
-                  <div className="contact-card">
-                    <PhoneOutlined style={{ fontSize: '18px', marginRight: '8px' }} />
-                    <div>
-                      <Text className="info-label">Số điện thoại</Text>
-                      <p className="info-value">{profileData.employee?.phone || 'Chưa cập nhật'}</p>
-                    </div>
-                  </div>
+                  <Form.Item
+                    label="Họ và tên"
+                    name="fullName"
+                    rules={[{ required: true, message: 'Vui lòng nhập họ và tên' }]}
+                  >
+                    <Input prefix={<UserOutlined />} />
+                  </Form.Item>
                 </Col>
                 <Col span={12}>
-                  <div className="contact-card green">
-                    <MailOutlined style={{ fontSize: '18px', marginRight: '8px' }} />
-                    <div>
-                      <Text className="info-label">Email</Text>
-                      <p className="info-value">{profileData.employee?.email || profileData.account.email || 'Chưa cập nhật'}</p>
-                    </div>
-                  </div>
+                  <Form.Item
+                    label="Tên đăng nhập"
+                    name="username"
+                    rules={[{ required: true, message: 'Vui lòng nhập tên đăng nhập' }]}
+                  >
+                    <Input prefix={<UserOutlined />} />
+                  </Form.Item>
                 </Col>
               </Row>
               <Row gutter={16}>
                 <Col span={12}>
-                  <div className="contact-card purple">
-                    <HomeOutlined style={{ fontSize: '18px', marginRight: '8px' }} />
-                    <div>
-                      <Text className="info-label">Địa chỉ</Text>
-                      <p className="info-value">{profileData.employee?.address || 'Chưa cập nhật'}</p>
-                    </div>
-                  </div>
+                  <Form.Item
+                    label="Số điện thoại"
+                    name="phone"
+                    rules={[{ pattern: /^[0-9]{10}$/, message: 'Số điện thoại phải có 10 chữ số' }]}
+                  >
+                    <Input prefix={<PhoneOutlined />} />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item label="Email" name="email">
+                    <Input prefix={<MailOutlined />} disabled />
+                  </Form.Item>
                 </Col>
               </Row>
-              {profileData.employee?.hotels && profileData.employee.hotels.length > 0 && (
-                <div className="contact-section">
-                  <Title level={4}>Khách sạn được phân công</Title>
-                  {profileData.employee.hotels.map((hotel, index) => (
-                    <div key={index} className="hotel-card">
-                      <HomeOutlined style={{ fontSize: '18px', marginRight: '8px' }} />
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Form.Item label="Giới tính" name="gender">
+                    <Select placeholder="Chọn giới tính">
+                      <Option value="Nam">Nam</Option>
+                      <Option value="Nữ">Nữ</Option>
+                      <Option value="Khác">Khác</Option>
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item label="Địa chỉ" name="address">
+                    <Input prefix={<HomeOutlined />} />
+                  </Form.Item>
+                </Col>
+              </Row>
+              {profileError && <p className="error-message">{profileError}</p>}
+              {profileSuccess && <p className="success-message">{profileSuccess}</p>}
+              <Form.Item>
+                <Button type="primary" className="submit-button" htmlType="submit" icon={<SaveOutlined />}>
+                  Lưu thay đổi
+                </Button>
+              </Form.Item>
+            </Form>
+          ) : (
+            <div className="employee-grid">
+              <div className="contact-section">
+                <Title level={4}>Thông tin liên hệ</Title>
+                <Row gutter={16}>
+                  <Col span={12}>
+                    <div className="contact-card">
+                      <PhoneOutlined style={{ fontSize: '18px', marginRight: '8px' }} />
                       <div>
-                        <Text strong>{hotel.CodeHotel || 'Mã khách sạn'}:</Text>
-                        <p>{hotel.NameHotel || 'Tên khách sạn'}</p>
+                        <Text className="info-label">Số điện thoại</Text>
+                        <p className="info-value">{profileData.employee?.phone || 'Chưa cập nhật'}</p>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="sidebar">
-              <div className="sidebar-card">
-                <Title level={4}>Thông tin khác</Title>
-                <div className="info-grid">
-                  <div className="info-card">
-                    <CalendarOutlined style={{ fontSize: '16px', marginRight: '8px' }} />
-                    <div>
-                      <Text strong>Ngày tham gia:</Text>
-                      <p>
-                        {profileData.employee?.createdAt
-                          ? new Date(profileData.employee.createdAt).toLocaleDateString('vi-VN')
-                          : 'Chưa cập nhật'}
-                      </p>
+                  </Col>
+                  <Col span={12}>
+                    <div className="contact-card green">
+                      <MailOutlined style={{ fontSize: '18px', marginRight: '8px' }} />
+                      <div>
+                        <Text className="info-label">Email</Text>
+                        <p className="info-value">{profileData.employee?.email || profileData.account.email || 'Chưa cập nhật'}</p>
+                      </div>
                     </div>
+                  </Col>
+                </Row>
+                <Row gutter={16}>
+                  <Col span={12}>
+                    <div className="contact-card purple">
+                      <HomeOutlined style={{ fontSize: '18px', marginRight: '8px' }} />
+                      <div>
+                        <Text className="info-label">Địa chỉ</Text>
+                        <p className="info-value">{profileData.employee?.address || 'Chưa cập nhật'}</p>
+                      </div>
+                    </div>
+                  </Col>
+                </Row>
+                {profileData.employee?.hotels && profileData.employee.hotels.length > 0 && (
+                  <div className="contact-section">
+                    <Title level={4}>Khách sạn được phân công</Title>
+                    {profileData.employee.hotels.map((hotel, index) => (
+                      <div key={index} className="hotel-card">
+                        <HomeOutlined style={{ fontSize: '18px', marginRight: '8px' }} />
+                        <div>
+                          <Text strong>{hotel.CodeHotel || 'Mã khách sạn'}:</Text>
+                          <p>{hotel.NameHotel || 'Tên khách sạn'}</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <div className="info-card">
-                    <SettingOutlined style={{ fontSize: '16px', marginRight: '8px' }} />
-                    <div>
-                      <Text strong>Quyền hạn:</Text>
-                      <p>{profileData.account.permissions?.[0]?.PermissionName || 'Chưa cập nhật'}</p>
+                )}
+              </div>
+              <div className="sidebar">
+                <div className="sidebar-card">
+                  <Title level={4}>Thông tin khác</Title>
+                  <div className="info-grid">
+                    <div className="info-card">
+                      <CalendarOutlined style={{ fontSize: '16px', marginRight: '8px' }} />
+                      <div>
+                        <Text strong>Ngày tham gia:</Text>
+                        <p>
+                          {profileData.employee?.createdAt
+                            ? new Date(profileData.employee.createdAt).toLocaleDateString('vi-VN')
+                            : 'Chưa cập nhật'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="info-card">
+                      <SettingOutlined style={{ fontSize: '16px', marginRight: '8px' }} />
+                      <div>
+                        <Text strong>Quyền hạn:</Text>
+                        <p>{profileData.account.permissions?.[0]?.PermissionName || 'Chưa cập nhật'}</p>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
-      </div>
-    </Card>
-  );
+          )}
+        </div>
+      </Card>
+    );
+  };
 
   // Password Tab Content
   const PasswordTab = () => (
@@ -712,6 +851,13 @@ const ProfilePage = () => {
 
   return (
     <div className="profile-page">
+      <Button
+        icon={<ArrowLeftOutlined />}
+        onClick={() => window.history.back()}
+        style={{ marginBottom: 16 }}
+      >
+        Quay lại
+      </Button>
       <div className="profile-wrapper">
         <Tabs
           activeKey={activeTab}
@@ -724,8 +870,6 @@ const ProfilePage = () => {
             setProfileSuccess('');
             setPasswordError('');
             setPasswordSuccess('');
-            setAvatarFile(null);
-            setAvatarPreview(null);
             fetchProfileData();
           }}
           className="profile-tabs"
